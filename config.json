@@ -1,0 +1,79 @@
+{
+  "llm": {
+    "provider": "ollama",
+    "base_url": "http://127.0.0.1:11434",
+    "model": "qwen2.5-coder:7b",
+    "temperature": 0.2,
+    "max_tokens": 1500,
+    "timeout_seconds": 15
+  },
+  "online_providers": {
+    "openai": {
+      "api_key": "",
+      "base_url": "https://api.openai.com/v1",
+      "model": "gpt-4o",
+      "enabled": false
+    },
+    "grok": {
+      "api_key": "",
+      "base_url": "https://api.x.ai/v1",
+      "model": "grok-2",
+      "enabled": false
+    },
+    "groq": {
+      "api_key": "",
+      "base_url": "https://api.groq.com/openai/v1",
+      "model": "llama-3.3-70b-versatile",
+      "enabled": false
+    },
+    "claude": {
+      "api_key": "",
+      "base_url": "https://api.anthropic.com/v1",
+      "model": "claude-3-5-sonnet-20241022",
+      "enabled": false
+    },
+    "deepseek": {
+      "api_key": "",
+      "base_url": "https://api.deepseek.com/v1",
+      "model": "deepseek-chat",
+      "enabled": false
+    },
+    "gemini": {
+      "api_key": "",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "model": "gemini-2.0-flash",
+      "enabled": false
+    }
+  },
+  "custom_endpoints": [],
+  "routing": {
+    "auto_failover_on_rate_limit": true,
+    "fastest_first_race": false
+  },
+  "custom_instructions": "",
+  "preferences": {
+    "coding_language": "Go",
+    "window_opacity": 0.9,
+    "screen_share_shield": true,
+    "click_through": false,
+    "teleprompter_mode": false
+  },
+  "window_geometry": {
+    "x": 250,
+    "y": 180,
+    "width": 800,
+    "height": 600
+  },
+  "hotkeys": {
+    "panic_hide": "ctrl+alt+h",
+    "snip_ocr": "ctrl+alt+s",
+    "generate_answer": "ctrl+alt+a",
+    "toggle_teleprompter": "ctrl+alt+t",
+    "silent_copy": "ctrl+alt+c"
+  },
+  "profile": {
+    "candidate_name": "Senior Software Engineer",
+    "resume": "Staff Engineer with 10 years distributed systems experience at Google and Uber.",
+    "job_description": "Staff Software Engineer, Infrastructure"
+  }
+}

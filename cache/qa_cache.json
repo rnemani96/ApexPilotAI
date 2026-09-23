@@ -1,0 +1,11 @@
+[
+  {
+    "raw_question": "How do you implement a LRU cache with O(1) operations in Python?",
+    "normalized_question": "do implement lru cache with o1 operations python",
+    "answer": "Use an OrderedDict or a combination of a Doubly Linked List and a Hash Map.",
+    "mode": "stealth_coder",
+    "provider": "mock",
+    "timestamp": "2026-09-23T12:02:50.948778",
+    "pdf_path": "D:\\interAI\\saved_interviews\\20260923_120250_How_do_you_implement_a_LRU_cac.pdf"
+  }
+]

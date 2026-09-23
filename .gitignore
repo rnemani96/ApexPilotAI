@@ -1,0 +1,19 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# PyInstaller Build Artifacts
+build/
+dist/
+
+# Logs and Temp
+*.log
+.DS_Store
+Thumbs.db
