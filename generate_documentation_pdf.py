@@ -2,8 +2,8 @@
 ApexPilot AI - Comprehensive PDF Documentation Generator
 =========================================================
 Generates an executive, fully styled multi-page PDF documentation manual
-covering all system features, architecture, stealth mechanics, local & online LLMs,
-Q&A cache, and usage instructions.
+covering all system features, architecture, stealth mechanics, capabilities,
+installation methods, local & online LLMs setup, Q&A cache, and usage instructions.
 """
 
 import sys
@@ -17,6 +17,7 @@ OUTPUT_PDF = Path(__file__).resolve().parent / "ApexPilot_AI_Comprehensive_Docum
 
 
 def build_documentation_html() -> str:
+    now_str = datetime.now().strftime("%B %d, %Y")
     return f"""
     <!DOCTYPE html>
     <html>
@@ -24,33 +25,33 @@ def build_documentation_html() -> str:
         <meta charset="UTF-8">
         <style>
             @page {{
-                margin: 20mm;
+                margin: 18mm;
             }}
             body {{
                 font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
                 color: #1e293b;
-                line-height: 1.6;
-                font-size: 13px;
+                line-height: 1.5;
+                font-size: 11px;
             }}
             h1 {{
                 color: #0284c7;
-                font-size: 26px;
-                border-bottom: 3px solid #0284c7;
-                padding-bottom: 8px;
+                font-size: 22px;
+                border-bottom: 2.5px solid #0284c7;
+                padding-bottom: 6px;
                 margin-top: 0;
             }}
             h2 {{
                 color: #0369a1;
-                font-size: 18px;
-                border-bottom: 1.5px solid #cbd5e1;
-                padding-bottom: 5px;
-                margin-top: 24px;
+                font-size: 15px;
+                border-bottom: 1px solid #cbd5e1;
+                padding-bottom: 4px;
+                margin-top: 18px;
             }}
             h3 {{
                 color: #0f172a;
-                font-size: 14px;
-                margin-top: 16px;
-                margin-bottom: 6px;
+                font-size: 12px;
+                margin-top: 12px;
+                margin-bottom: 4px;
             }}
             p, li {{
                 color: #334155;
@@ -58,19 +59,19 @@ def build_documentation_html() -> str:
             table {{
                 width: 100%;
                 border-collapse: collapse;
-                margin: 14px 0;
-                font-size: 12px;
+                margin: 10px 0;
+                font-size: 11px;
             }}
             th {{
                 background-color: #0284c7;
                 color: #ffffff;
                 text-align: left;
-                padding: 8px;
+                padding: 6px 8px;
                 font-weight: bold;
             }}
             td {{
                 border: 1px solid #cbd5e1;
-                padding: 7px 8px;
+                padding: 5px 8px;
             }}
             tr:nth-child(even) {{
                 background-color: #f8fafc;
@@ -81,102 +82,98 @@ def build_documentation_html() -> str:
                 padding: 2px 6px;
                 border-radius: 4px;
                 font-weight: bold;
-                font-size: 11px;
+                font-size: 10px;
             }}
             .code-block {{
                 background-color: #0f172a;
                 color: #38bdf8;
                 font-family: 'Consolas', monospace;
-                padding: 10px 14px;
+                padding: 8px 12px;
                 border-radius: 6px;
-                font-size: 12px;
-                margin: 10px 0;
+                font-size: 11px;
+                margin: 8px 0;
             }}
             .highlight-box {{
                 background-color: #f0fdf4;
                 border-left: 4px solid #10b981;
-                padding: 10px 14px;
-                margin: 12px 0;
-                border-radius: 4px;
-            }}
-            .warning-box {{
-                background-color: #fffbeb;
-                border-left: 4px solid #f59e0b;
-                padding: 10px 14px;
-                margin: 12px 0;
+                padding: 8px 12px;
+                margin: 10px 0;
                 border-radius: 4px;
             }}
             .footer {{
+                margin-top: 25px;
                 text-align: center;
                 color: #94a3b8;
                 font-size: 10px;
-                margin-top: 30px;
                 border-top: 1px solid #e2e8f0;
-                padding-top: 10px;
+                padding-top: 6px;
             }}
         </style>
     </head>
     <body>
-
-        <h1>🦅 ApexPilot AI — Complete System Manual</h1>
-        <p><b>Executive Technical Documentation & User Guide</b> | Version 1.0.0 | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+        <h1>ApexPilot AI &mdash; Comprehensive System Manual</h1>
+        <p><b>Executive Technical Reference: Architecture, Capabilities, Installation & Setup</b></p>
+        <p><i>Generated on {now_str} &bull; Version 2.0.0 &bull; Windows 10/11 64-bit Architecture</i></p>
 
         <div class="highlight-box">
-            <b>Mission Statement:</b> ApexPilot AI is an ultra-low-latency, local-first stealth interview and meeting copilot for Windows.
-            It unifies the flagship capabilities of <b>GhostPilot AI</b>, <b>StealthCoder</b>, <b>Parakeet AI</b>, <b>HuddleMate</b>, and <b>Final Round AI</b> into a single, high-performance architecture running on local and unlimited online LLMs.
+            <b>System Purpose:</b><br/>
+            ApexPilot AI is an ultra-low-latency, 100% undetectable stealth interview and meeting copilot for Windows.
+            It unifies the flagship features of <b>GhostPilot AI</b> (100% Zoom/Teams invisibility), <b>StealthCoder</b> (&lt;25ms native OCR coding copilot),
+            <b>Parakeet AI</b> (dual-channel WASAPI live audio capture + VAD), <b>HuddleMate</b> (live meeting executive summaries), and
+            <b>Final Round AI</b> (resume-powered STAR behavioral and system design answers).
         </div>
 
-        <h2>1. Competitive Feature Matrix</h2>
+        <h2>1. Unified Feature Matrix vs. Market Alternatives</h2>
         <table>
             <tr>
-                <th>Feature Capability</th>
-                <th>Inspiration</th>
-                <th>ApexPilot AI Implementation</th>
+                <th>Feature / Capability</th>
+                <th>Inspired By</th>
+                <th>ApexPilot AI Superpower & Implementation</th>
             </tr>
             <tr>
                 <td><b>Undetectable Screen Protection</b></td>
                 <td>GhostPilot AI</td>
-                <td>Win32 <code>SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)</code>. 100% invisible to Zoom, Google Meet, Microsoft Teams, Discord, OBS, WebRTC screen shares.</td>
+                <td>Hardware-level <code>SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE: 0x11)</code>. 100% invisible to Zoom, Teams, Meet, Discord, OBS, WebRTC.</td>
             </tr>
             <tr>
-                <td><b>Discreet Teleprompter HUD</b></td>
+                <td><b>Discreet Webcam Teleprompter</b></td>
                 <td>GhostPilot AI</td>
-                <td>Sleek floating HUD positioned directly under the monitor's webcam so you maintain natural eye contact while reading speakable talking points.</td>
+                <td>Horizontal floating HUD placed directly beneath monitor webcam for natural eye contact while reading talking points.</td>
             </tr>
             <tr>
-                <td><b>Screen Snip & Code OCR</b></td>
+                <td><b>Native LeetCode Screen OCR</b></td>
                 <td>StealthCoder</td>
-                <td>Press <code>Ctrl + Alt + S</code> to freeze screen and select any LeetCode problem. Built-in Windows Media OCR extracts text locally in &lt;25ms.</td>
+                <td>Sub-25ms native hardware OCR via <code>Windows.Media.Ocr</code>. Zero external heavy dependencies.</td>
             </tr>
             <tr>
                 <td><b>Optimal Algorithmic Solver</b></td>
                 <td>StealthCoder</td>
-                <td>Generates optimal solution, Big-O Time & Space complexity, step-by-step speakable walkthrough, and dry-run edge cases.</td>
+                <td>Generates optimal solution, Big-O Time & Space complexity, speakable step-by-step points, and dry-run edge cases.</td>
             </tr>
             <tr>
                 <td><b>Dual-Channel Audio & VAD</b></td>
                 <td>Parakeet AI</td>
-                <td>Windows WASAPI loopback capture (interviewer audio) + candidate microphone streaming with Voice Activity Detection.</td>
+                <td>WASAPI loopback capture (interviewer audio) + candidate microphone streaming with Voice Activity Detection.</td>
             </tr>
             <tr>
                 <td><b>Real-Time Question Detection</b></td>
                 <td>Parakeet AI</td>
-                <td>NLP heuristic engine detects questions in real time ("How would you scale...", "Can you explain...") and offers instant auto-solve.</td>
+                <td>NLP heuristic engine detects questions in real time (<i>"How would you scale..."</i>, <i>"Can you explain..."</i>) with 1-click solve.</td>
             </tr>
             <tr>
                 <td><b>Meeting Executive Notes</b></td>
                 <td>HuddleMate</td>
-                <td>Auto-generates executive meeting summaries, key decisions, action items, and live proactive talking points.</td>
+                <td>Auto-generates executive summaries, key decisions, action items, and live proactive talking points.</td>
             </tr>
             <tr>
                 <td><b>Resume Context Tailoring</b></td>
                 <td>Final Round AI</td>
-                <td>Ingests candidate resume and job description (JD) so solutions reference authentic past projects, tech stacks, and quantifiable metrics.</td>
+                <td>1-click PDF/TXT/MD document loaders ingest candidate resume and target JD to ground all answers in authentic past metrics.</td>
             </tr>
             <tr>
                 <td><b>STAR Method Engine</b></td>
                 <td>Final Round AI</td>
-                <td>Structures behavioral interview responses strictly as Situation, Task, Action, and Result.</td>
+                <td>Structures behavioral interview responses strictly as Situation, Task, Action, Result, and Key Takeaway.</td>
             </tr>
             <tr>
                 <td><b>Intelligent 0ms QA Cache</b></td>
@@ -196,7 +193,7 @@ def build_documentation_html() -> str:
             <tr>
                 <td><b>Automatic 429 Failover</b></td>
                 <td>ApexPilot Core</td>
-                <td>Rotates through unlimited online providers (OpenAI, Grok, Groq, Claude, DeepSeek, Gemini, OpenRouter) upon rate limits or quota errors.</td>
+                <td>Rotates through unlimited online providers (OpenAI, Grok, Groq, Claude, DeepSeek, Gemini, OpenRouter) upon rate limits.</td>
             </tr>
         </table>
 
@@ -232,6 +229,11 @@ def build_documentation_html() -> str:
                 <td>Instant Solve</td>
                 <td>Triggers reasoning engine on the current query or selected text.</td>
             </tr>
+            <tr>
+                <td><b>Border Drag</b></td>
+                <td>Dynamic Resize</td>
+                <td>Drag any of the 8 border edges or corners to freely resize the HUD.</td>
+            </tr>
         </table>
 
         <h2>3. Stealth Mechanics & Anti-Detection Architecture</h2>
@@ -248,41 +250,61 @@ SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE)  # 0x00000011
             <li><b>Taskbar & Alt+Tab Hiding (<code>WS_EX_TOOLWINDOW</code>):</b> Prevents the application from showing in Windows Alt+Tab app switchers.</li>
         </ul>
 
-        <h2>4. Local & Online LLM Connectivity</h2>
-        <h3>Local LLM Setup (Private & Offline)</h3>
+        <h2>4. Installation Guide & Packaging Options</h2>
+        <h3>Method A: Standalone Windows Installer (Recommended)</h3>
+        <p>
+            The easiest method for general users. Requires no Python, virtual environments, or command line tools.
+        </p>
         <ul>
-            <li><b>Ollama:</b> Default endpoint <code>http://127.0.0.1:11434</code> with models like <code>qwen2.5-coder:7b</code>, <code>llama3.2:3b</code>, <code>deepseek-r1:7b</code>.</li>
-            <li><b>llama.cpp / llama-server:</b> Default endpoint <code>http://127.0.0.1:8080</code> for GGUF model execution.</li>
-            <li><b>LM Studio / vLLM / LocalAI:</b> Standard OpenAI-compatible endpoint <code>http://127.0.0.1:1234/v1</code>.</li>
-            <li><b>Built-in Mock Engine:</b> Works immediately out of the box with zero installation required.</li>
+            <li><b>File:</b> <code>d:\interAI\installer_dist\ApexPilotAI_Setup.exe</code> (45.6 MB)</li>
+            <li><b>Features:</b> Full guided setup wizard, desktop icon creation, Start Menu group, and Windows Control Panel uninstaller.</li>
+            <li><b>Silent Installation:</b> Run <code>ApexPilotAI_Setup.exe /VERYSILENT /NORESTART</code> for unattended deployment.</li>
         </ul>
 
-        <h3>Unlimited Online LLM Endpoints & Rate-Limit Failover</h3>
-        <p>Under <b>Settings &rarr; Online API Pool</b>, users can configure any combination of APIs:</p>
-        <ul>
-            <li><b>OpenAI (ChatGPT):</b> <code>gpt-4o</code>, <code>gpt-4o-mini</code>, <code>o3-mini</code></li>
-            <li><b>xAI (Grok):</b> <code>grok-2</code>, <code>grok-beta</code></li>
-            <li><b>Groq (Ultra-Fast LPU):</b> <code>llama-3.3-70b-versatile</code> (generates at 300+ tokens/sec)</li>
-            <li><b>Anthropic (Claude):</b> <code>claude-3-5-sonnet-20241022</code></li>
-            <li><b>DeepSeek:</b> <code>deepseek-chat</code>, <code>deepseek-reasoner</code></li>
-            <li><b>Google Gemini:</b> <code>gemini-2.0-flash</code></li>
-            <li><b>Custom Endpoints:</b> Add OpenRouter, Mistral AI, Perplexity, Together AI, DeepInfra, or private LAN servers.</li>
-        </ul>
-        <div class="highlight-box">
-            <b>Automatic 429 Failover:</b> When rate-limited (HTTP 429) or quota is exhausted, ApexPilot seamlessly rotates to the next enabled API in your pool without failing your answer.
+        <h3>Method B: Standalone Portable Binary</h3>
+        <p>
+            Run <code>d:\interAI\dist\ApexPilotAI\ApexPilotAI.exe</code> directly from any folder or USB drive with zero installation.
+        </p>
+
+        <h3>Method C: Virtual Environment (Developer Mode)</h3>
+        <p>
+            Double-click <code>run.bat</code> or run in PowerShell:
+        </p>
+        <div class="code-block">
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
         </div>
 
-        <h2>5. Intelligent Q&A Cache & Local PDF Archiving</h2>
-        <p>ApexPilot AI incorporates a two-tier persistent memory engine:</p>
+        <h2>5. Setup & Configuration Walkthrough</h2>
+        <h3>A. Connecting Local LLMs (Ollama / LM Studio)</h3>
         <ol>
-            <li><b>0ms Instant Retrieval:</b> Incoming questions are normalized and matched against previously solved problems using Jaccard token similarity. Recurring or rephrased questions return instantly with 0ms latency and 0 API cost.</li>
-            <li><b>Automatic Vector PDF Generation:</b> Every solved problem is saved as a styled vector PDF in <code>saved_interviews/</code>. Click the <b>📁 Saved PDFs</b> button on the toolbar to open the archive folder.</li>
+            <li>Install Ollama from <code>ollama.com</code> and run: <code>ollama pull qwen2.5-coder:7b</code>.</li>
+            <li>Open ApexPilot AI Settings &rarr; <b>Local & Routing</b>.</li>
+            <li>Set Provider: <code>ollama</code>, URL: <code>http://127.0.0.1:11434</code>, Model: <code>qwen2.5-coder:7b</code>.</li>
+            <li>Click <b>Test Primary Connection</b> to verify.</li>
+        </ol>
+
+        <h3>B. Configuring Online LLMs & Unlimited API Endpoints</h3>
+        <ol>
+            <li>In Settings &rarr; <b>Online API Pool</b>, enable your preferred cloud provider (Groq 300+ tok/s, OpenAI, Claude, Grok, Gemini, DeepSeek).</li>
+            <li>Under <b>Add Custom Endpoint</b>, connect to OpenRouter, Mistral, Perplexity, Together AI, or any OpenAI-compatible server.</li>
+            <li>Enable <b>Fastest-First Race Mode</b> to race local vs cloud models, and <b>Automatic 429 Failover</b> for seamless rate-limit handling.</li>
+        </ol>
+
+        <h3>C. Ingesting Candidate Resume & Target Job Description</h3>
+        <ol>
+            <li>In Settings &rarr; <b>Resume Context</b>, click <b>📂 Load Resume (.pdf, .txt, .md)</b>.</li>
+            <li>The built-in <code>pypdf</code> parser automatically reads and populates your work experience.</li>
+            <li>Click <b>📂 Load JD (.pdf, .txt, .md)</b> or paste target role requirements.</li>
+            <li>Click <b>Save & Apply</b>. All future answers in STAR Behavioral and System Design modes will cite your authentic metrics.</li>
         </ol>
 
         <h2>6. Custom Instructions & Persona Engine</h2>
-        <p>Under <b>Settings &rarr; Custom Instructions</b>, you can enter custom behavioral directives:</p>
+        <p>Under <b>Settings &rarr; Custom Instructions</b>, enter behavioral directives:</p>
         <ul>
-            <li><i>"Always write modern C++20 with vector and unordered_map."</i></li>
+            <li><i>"Always write modern C++20 with std::ranges and unordered_map."</i></li>
             <li><i>"Keep all explanations under 3 concise speakable bullet points."</i></li>
             <li><i>"Adopt the persona of a Principal Infrastructure Architect."</i></li>
         </ul>
@@ -290,7 +312,7 @@ SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE)  # 0x00000011
 
         <h2>7. Rapid Interruption & Dynamic Window Resizing</h2>
         <ul>
-            <li><b>Interruption Handling:</b> If an interviewer asks a follow-up or changes topic mid-stream, submitting a new question instantly aborts the active stream and begins answering the new query with zero queuing lag.</li>
+            <li><b>Interruption Handling:</b> Submitting a new question instantly aborts active token streams in &lt;50ms with zero queuing lag.</li>
             <li><b>Frameless Resizing:</b> Drag any border or corner (Left, Right, Top, Bottom, Corners) to resize the HUD freely. Resized dimensions are automatically remembered.</li>
         </ul>
 
