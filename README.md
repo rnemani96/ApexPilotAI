@@ -37,7 +37,7 @@
 
 ### 1. Windows Setup Installer (Recommended)
 You can install ApexPilot AI directly using the generated Windows Setup wizard:
-- **Installer Path**: [`d:\interAI\installer_dist\ApexPilotAI_Setup.exe`](file:///d:/interAI/installer_dist/ApexPilotAI_Setup.exe) (45.5 MB)
+- **Installer Path**: [`\\installer_dist\ApexPilotAI_Setup.exe`](//installer_dist/ApexPilotAI_Setup.exe) (45.5 MB)
 - Features:
   - Guided installation wizard
   - Creates **Desktop Shortcut**
@@ -46,8 +46,6 @@ You can install ApexPilot AI directly using the generated Windows Setup wizard:
   - Single-file zero-dependency installation (no Python or virtual environment needed!)
 
 ### 2. Standalone Portable Executable
-If you prefer not to install and want a portable executable:
-- **Binary Path**: [`d:\interAI\dist\ApexPilotAI\ApexPilotAI.exe`](file:///d:/interAI/dist/ApexPilotAI/ApexPilotAI.exe)
 - Simply run `ApexPilotAI.exe` directly from the `dist\ApexPilotAI` folder.
 
 ### 3. Developer Mode (Virtual Environment)
