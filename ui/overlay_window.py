@@ -492,8 +492,9 @@ class OverlayWindow(QWidget):
 
     def _on_snip_completed(self, text: str):
         self.show()
-        self.query_input.setText(text)
-        self.execute_query(text)
+        if text and text.strip():
+            self.query_input.setText(text)
+            self.execute_query(text)
 
     def _on_submit_query(self):
         query = self.query_input.text().strip()

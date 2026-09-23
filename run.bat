@@ -28,6 +28,7 @@ echo     - Ctrl + Alt + H : Panic / Boss Key (Instant Hide/Unhide)
 echo     - Ctrl + Alt + S : Snip LeetCode Screen (OCR Solver)
 echo     - Ctrl + Alt + T : Webcam Teleprompter HUD
 echo     - Ctrl + Alt + C : Silent Code Copy
+echo     - Ctrl + Alt + A : Instant Solve Highlight / Input Query
 echo.
 
 python main.py

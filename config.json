@@ -70,8 +70,8 @@
   "window_geometry": {
     "x": 250,
     "y": 180,
-    "width": 760,
-    "height": 640
+    "width": 800,
+    "height": 600
   },
   "hotkeys": {
     "panic_hide": "ctrl+alt+h",
