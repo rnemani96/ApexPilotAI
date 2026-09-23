@@ -172,6 +172,37 @@ class TestApexPilotComplete(unittest.TestCase):
         found_after = any(e["id"] == endpoint["id"] for e in endpoints_after)
         self.assertFalse(found_after, "Custom endpoint must be deleted.")
 
+    def test_12_resume_jd_document_extraction(self):
+        """Verifies text extraction from documents and prompt tailoring with resume + JD."""
+        from ui.settings_dialog import extract_text_from_document
+        import tempfile
+
+        # Test text file extraction
+        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as tf:
+            tf.write("Senior Distributed Systems Engineer. Scaled Apache Kafka to 5M events/sec.")
+            temp_path = tf.name
+
+        try:
+            extracted = extract_text_from_document(temp_path)
+            self.assertIn("5M events/sec", extracted)
+
+            # Test prompt building with tailored resume and JD
+            context = {
+                "resume": extracted,
+                "job_description": "Staff Engineer - Kafka & Stream Processing",
+                "custom_instructions": ""
+            }
+            sys_star, user_star = build_prompt("star_behavioral", "Tell me about a high throughput project.", context)
+            self.assertIn("5M events/sec", sys_star)
+            self.assertIn("Staff Engineer - Kafka", sys_star)
+
+            sys_sysdes, _ = build_prompt("system_design", "Design a real-time event pipeline.", context)
+            self.assertIn("5M events/sec", sys_sysdes)
+            self.assertIn("Staff Engineer - Kafka", sys_sysdes)
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
 
 if __name__ == "__main__":
     unittest.main()
+

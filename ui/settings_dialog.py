@@ -9,11 +9,12 @@ Configures:
 - Coding Language, Saved PDF archives & Stealth preferences
 """
 
+from pathlib import Path
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QComboBox, QTextEdit, QPushButton, QSlider, QTabWidget,
     QWidget, QMessageBox, QGroupBox, QCheckBox, QScrollArea,
-    QFrame
+    QFrame, QFileDialog
 )
 from PySide6.QtCore import Qt
 from core.context_store import context_store
@@ -22,6 +23,35 @@ from core.pdf_exporter import pdf_exporter
 import logging
 
 logger = logging.getLogger("ApexPilot.Settings")
+
+
+def extract_text_from_document(file_path: str) -> str:
+    """Extracts text content from .pdf, .txt, .md, or other documents."""
+    path = Path(file_path)
+    if not path.exists():
+        return ""
+
+    if path.suffix.lower() == ".pdf":
+        try:
+            import pypdf
+            reader = pypdf.PdfReader(str(path))
+            pages = []
+            for page in reader.pages:
+                t = page.extract_text()
+                if t:
+                    pages.append(t.strip())
+            return "\n\n".join(pages)
+        except Exception as e:
+            logger.error(f"Failed to extract PDF text: {e}")
+            raise e
+    else:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
+        except UnicodeDecodeError:
+            with open(path, "r", encoding="latin-1") as f:
+                return f.read()
+
 
 PRESET_ENDPOINTS = {
     "OpenRouter": ("https://openrouter.ai/api/v1", "anthropic/claude-3.5-sonnet"),
@@ -274,16 +304,38 @@ class SettingsDialog(QDialog):
         # Tab 4: Candidate Resume Context (Final Round AI)
         resume_tab = QWidget()
         resume_layout = QVBoxLayout(resume_tab)
-        resume_layout.addWidget(QLabel("Candidate Resume & Experience Context:"))
+
+        # Resume Header & Load Button
+        h_res_header = QHBoxLayout()
+        h_res_header.addWidget(QLabel("<b>Candidate Resume & Experience Context:</b>"))
+        self.load_resume_btn = QPushButton("📂 Load Resume (.pdf, .txt, .md)")
+        self.load_resume_btn.setStyleSheet("background-color: #2563eb; color: white; padding: 4px 10px; font-size: 11px;")
+        self.load_resume_btn.clicked.connect(self._on_load_resume_file)
+        h_res_header.addWidget(self.load_resume_btn)
+        resume_layout.addLayout(h_res_header)
+
         self.resume_text = QTextEdit()
-        self.resume_text.setPlaceholderText("Paste your resume summary, past company projects, metrics, and skills here...")
+        self.resume_text.setPlaceholderText("Paste your resume summary, past company projects, metrics, and skills here, or click 'Load Resume' above...")
         resume_layout.addWidget(self.resume_text)
 
-        resume_layout.addWidget(QLabel("Target Job Description (JD):"))
+        # JD Header & Load Button
+        h_jd_header = QHBoxLayout()
+        h_jd_header.addWidget(QLabel("<b>Target Job Description (JD):</b>"))
+        self.load_jd_btn = QPushButton("📂 Load JD (.pdf, .txt, .md)")
+        self.load_jd_btn.setStyleSheet("background-color: #0d9488; color: white; padding: 4px 10px; font-size: 11px;")
+        self.load_jd_btn.clicked.connect(self._on_load_jd_file)
+        h_jd_header.addWidget(self.load_jd_btn)
+        resume_layout.addLayout(h_jd_header)
+
         self.jd_text = QTextEdit()
-        self.jd_text.setPlaceholderText("Paste target role description, key tech stack requirements...")
-        self.jd_text.setMaximumHeight(80)
+        self.jd_text.setPlaceholderText("Paste target role description, key tech stack requirements, or click 'Load JD' above...")
+        self.jd_text.setMaximumHeight(100)
         resume_layout.addWidget(self.jd_text)
+
+        info_lbl = QLabel("💡 <i>ApexPilot AI tailors STAR behavioral stories, system designs, and talking points specifically to your authentic resume projects and the company's JD requirements.</i>")
+        info_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        resume_layout.addWidget(info_lbl)
+
         self.tabs.addTab(resume_tab, "📄 Resume Context")
 
         # Tab 5: Stealth & Hotkeys
@@ -433,6 +485,42 @@ class SettingsDialog(QDialog):
         else:
             self.status_label.setText(f"❌ {msg}")
             self.status_label.setStyleSheet("color: #ff5555;")
+
+    def _on_load_resume_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select Candidate Resume", "", "Documents (*.pdf *.txt *.md *.doc);;All Files (*.*)"
+        )
+        if file_path:
+            try:
+                extracted = extract_text_from_document(file_path)
+                if extracted.strip():
+                    self.resume_text.setPlainText(extracted.strip())
+                    QMessageBox.information(
+                        self, "Resume Loaded",
+                        f"Successfully loaded resume from:\n{Path(file_path).name}\n\n({len(extracted)} characters extracted)"
+                    )
+                else:
+                    QMessageBox.warning(self, "Empty Document", "No text could be extracted from the selected file.")
+            except Exception as e:
+                QMessageBox.critical(self, "Load Error", f"Failed to read file: {e}")
+
+    def _on_load_jd_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select Target Job Description (JD)", "", "Documents (*.pdf *.txt *.md *.doc);;All Files (*.*)"
+        )
+        if file_path:
+            try:
+                extracted = extract_text_from_document(file_path)
+                if extracted.strip():
+                    self.jd_text.setPlainText(extracted.strip())
+                    QMessageBox.information(
+                        self, "Job Description Loaded",
+                        f"Successfully loaded Job Description from:\n{Path(file_path).name}\n\n({len(extracted)} characters extracted)"
+                    )
+                else:
+                    QMessageBox.warning(self, "Empty Document", "No text could be extracted from the selected file.")
+            except Exception as e:
+                QMessageBox.critical(self, "Load Error", f"Failed to read file: {e}")
 
     def _save_and_close(self):
         context_store.config["llm"]["provider"] = self.provider_combo.currentText()

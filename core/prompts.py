@@ -53,6 +53,9 @@ Design a highly scalable, fault-tolerant solution for the given system design pr
 Candidate Context & Background:
 {resume_context}
 
+Target Role & Infrastructure Requirements (JD):
+{job_context}
+
 Format:
 ### 1. Core Requirements & Scale Estimations
 - Functional requirements (top 3) & Non-functional (availability, latency, consistency).
@@ -115,7 +118,7 @@ def build_prompt(mode: str, query: str, context: dict = None) -> tuple[str, str]
         sys_prompt = STAR_BEHAVIORAL_SYSTEM_PROMPT.format(resume_context=resume_context, job_context=job_context)
         user_prompt = f"Interview Question:\n{query}"
     elif mode == "system_design":
-        sys_prompt = SYSTEM_DESIGN_SYSTEM_PROMPT.format(resume_context=resume_context)
+        sys_prompt = SYSTEM_DESIGN_SYSTEM_PROMPT.format(resume_context=resume_context, job_context=job_context)
         user_prompt = f"System Design Prompt:\n{query}"
     elif mode == "huddle_mate":
         sys_prompt = HUDDLE_MATE_MEETING_PROMPT.format(transcript=query)

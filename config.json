@@ -45,7 +45,16 @@
       "enabled": false
     }
   },
-  "custom_endpoints": [],
+  "custom_endpoints": [
+    {
+      "id": "custom_1790146391492",
+      "name": "OpenRouter Test",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key": "sk-or-test12345",
+      "model": "anthropic/claude-3.5-sonnet",
+      "enabled": true
+    }
+  ],
   "routing": {
     "auto_failover_on_rate_limit": true,
     "fastest_first_race": false
@@ -61,8 +70,8 @@
   "window_geometry": {
     "x": 250,
     "y": 180,
-    "width": 800,
-    "height": 600
+    "width": 760,
+    "height": 640
   },
   "hotkeys": {
     "panic_hide": "ctrl+alt+h",
