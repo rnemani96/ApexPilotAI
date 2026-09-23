@@ -105,6 +105,7 @@ def main():
     hotkey_manager.teleprompter_triggered.connect(overlay._toggle_teleprompter_mode)
     hotkey_manager.copy_triggered.connect(overlay.copy_clean_code)
     hotkey_manager.solve_triggered.connect(overlay._on_submit_query)
+    hotkey_manager.click_through_triggered.connect(overlay._toggle_click_through)
     hotkey_manager.start()
 
     # Start audio capture engine

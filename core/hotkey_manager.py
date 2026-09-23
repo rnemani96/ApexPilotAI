@@ -24,6 +24,7 @@ class GlobalHotkeyManager(QObject):
     teleprompter_triggered = Signal()
     copy_triggered = Signal()
     solve_triggered = Signal()
+    click_through_triggered = Signal()
 
     def __init__(self):
         super().__init__()
@@ -39,9 +40,10 @@ class GlobalHotkeyManager(QObject):
             keyboard.add_hotkey("ctrl+alt+t", lambda: self.teleprompter_triggered.emit(), suppress=False)
             keyboard.add_hotkey("ctrl+alt+c", lambda: self.copy_triggered.emit(), suppress=False)
             keyboard.add_hotkey("ctrl+alt+a", lambda: self.solve_triggered.emit(), suppress=False)
+            keyboard.add_hotkey("ctrl+alt+x", lambda: self.click_through_triggered.emit(), suppress=False)
 
             self._is_active = True
-            logger.info("Global hotkeys registered successfully (Ctrl+Alt+H, S, T, C, A)")
+            logger.info("Global hotkeys registered successfully (Ctrl+Alt+H, S, T, C, A, X)")
         except Exception as e:
             logger.warning(f"Could not register global hotkeys (may need administrator permissions): {e}")
 

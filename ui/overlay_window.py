@@ -342,7 +342,7 @@ class OverlayWindow(QWidget):
 
         # 8. User-Friendly Shortcut Guide Footer
         footer_layout = QHBoxLayout()
-        hint_label = QLabel("⌨️ <b>Ctrl+Alt+S</b> Snip &bull; <b>Ctrl+Alt+H</b> Panic &bull; <b>Ctrl+Alt+T</b> Teleprompter &bull; <b>Ctrl+Alt+C</b> Copy &bull; <i>Drag borders to resize</i>")
+        hint_label = QLabel("⌨️ <b>Ctrl+Alt+S</b> Snip &bull; <b>Ctrl+Alt+X</b> Click-Thru &bull; <b>Ctrl+Alt+T</b> Teleprompter &bull; <b>Ctrl+Alt+H</b> Panic &bull; <i>Drag borders to resize</i>")
         hint_label.setStyleSheet("color: #64748b; font-size: 10px;")
         footer_layout.addWidget(hint_label)
         footer_layout.addStretch()
@@ -592,7 +592,7 @@ class OverlayWindow(QWidget):
             stealth_layer.set_click_through(int(self.winId()), self.is_click_through)
 
         if self.is_click_through:
-            self.click_thru_btn.setText("🖱️ Click-Thru: ON")
+            self.click_thru_btn.setText("🖱️ Click-Thru: ON (Ctrl+Alt+X)")
             self.click_thru_btn.setStyleSheet(self._button_style("#10b981"))
         else:
             self.click_thru_btn.setText("🖱️ Click-Thru: OFF")

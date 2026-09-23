@@ -202,6 +202,30 @@ class TestApexPilotComplete(unittest.TestCase):
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
+    def test_13_click_through_toggle_and_opacity(self):
+        """Verifies click-through toggle state and opacity transparency."""
+        from ui.overlay_window import OverlayWindow
+        hud = OverlayWindow()
+
+        # Test opacity
+        hud._on_opacity_change(50)
+        self.assertAlmostEqual(hud.windowOpacity(), 0.50, delta=0.01)
+
+        hud._on_opacity_change(100)
+        self.assertAlmostEqual(hud.windowOpacity(), 1.0, delta=0.01)
+
+        # Test click-through toggling
+        initial_state = hud.is_click_through
+        hud._toggle_click_through()
+        self.assertNotEqual(hud.is_click_through, initial_state)
+        self.assertTrue(hud.is_click_through)
+        self.assertIn("ON", hud.click_thru_btn.text())
+
+        # Toggle back
+        hud._toggle_click_through()
+        self.assertFalse(hud.is_click_through)
+        self.assertIn("OFF", hud.click_thru_btn.text())
+
 
 if __name__ == "__main__":
     unittest.main()
