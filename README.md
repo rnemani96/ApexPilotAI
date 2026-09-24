@@ -78,13 +78,19 @@ ApexPilot AI works out-of-the-box with a built-in offline engine, but is built t
 2. In ApexPilot AI, click the **⚙️ Settings** icon:
    - **Provider**: `ollama`
    - **Base URL**: `http://127.0.0.1:11434`
-   - **Model**: `qwen2.5-coder:7b`
+   - **Model**: `qwen2.5:3b`
    - Click **⚡ Test Local LLM Connection**.
 
-`qwen2.5:3b` is the recommended free fallback for machines with limited
-memory. `llama3.2:3b` and `phi3:mini` are also good lightweight choices.
-If the configured Ollama model is unavailable, ApexPilot automatically selects
-one of these installed local models.
+`qwen2.5:3b` is the recommended low-latency interview model. The tested local
+fallback order is `phi4-mini`, `gemma3:4b`, `llama3.2:3b`, and
+`qwen2.5-coder:7b`. Coding questions can use `phi4-mini`; behavioral and
+multilingual questions are particularly suitable for `gemma3:4b`. If the
+configured model is unavailable, ApexPilot selects the first installed model
+from this order.
+
+`qwen3:4b` is installed and can be selected manually, but it is not in the
+automatic order because its current Ollama build may expose internal reasoning
+text in the answer stream.
 
 ### Meeting audio troubleshooting
 

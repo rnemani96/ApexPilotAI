@@ -74,7 +74,10 @@ class LocalLLMClient:
                     if not models:
                         return False, "Ollama is reachable but no models are installed.", []
                     if configured_model and configured_model not in models:
-                        fallback = self._choose_ollama_fallback(models)
+                        fallback = self._choose_ollama_fallback(
+                            models,
+                            context_store.get_routing_config().get("ollama_fallback_models"),
+                        )
                         return (
                             True,
                             (
@@ -109,16 +112,19 @@ class LocalLLMClient:
         return False, "Unknown provider or server unreachable", []
 
     @staticmethod
-    def _choose_ollama_fallback(models: list[str]) -> str:
+    def _choose_ollama_fallback(models: list[str], preferred: Optional[list[str]] = None) -> str:
         """Choose a small, free local model from the models already installed."""
-        preferred = (
+        candidates = preferred or (
             "qwen2.5:3b",
+            "phi4-mini",
+            "phi4-mini:latest",
+            "gemma3:4b",
             "llama3.2:3b",
             "phi3:mini",
             "gemma2:2b",
             "qwen2.5-coder:7b",
         )
-        for candidate in preferred:
+        for candidate in candidates:
             if candidate in models:
                 return candidate
         return models[0] if models else "qwen2.5:3b"
@@ -321,7 +327,10 @@ class LocalLLMClient:
                         if item.get("name")
                     ]
                     if installed and model not in installed:
-                        fallback = self._choose_ollama_fallback(installed)
+                        fallback = self._choose_ollama_fallback(
+                            installed,
+                            context_store.get_routing_config().get("ollama_fallback_models"),
+                        )
                         logger.warning(
                             "Configured Ollama model '%s' is unavailable; using local fallback '%s'.",
                             model,
@@ -336,6 +345,10 @@ class LocalLLMClient:
                 "options": {"temperature": llm_cfg.get("temperature", 0.2), "num_predict": llm_cfg.get("max_tokens", 1500)},
                 "stream": True
             }
+            # Qwen 3 can spend the whole short interview budget in hidden
+            # reasoning. Keep teleprompter responses direct and low-latency.
+            if model.startswith("qwen3"):
+                payload["think"] = False
             # Keep local generation responsive; fail over instead of blocking
             # the teleprompter for a long model-load or stalled stream.
             with client.stream(

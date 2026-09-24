@@ -160,10 +160,13 @@ Every question solved is automatically indexed into a local high-speed cache (`q
    # or
    ollama pull llama3.2:3b
    ```
-3. In ApexPilot AI Settings -> **⚡ Local & Routing**, ensure Base URL is `http://127.0.0.1:11434` and Model is `qwen2.5-coder:7b`.
-   `qwen2.5:3b` is the recommended free fallback for limited-memory
-   computers. If the configured model is missing, ApexPilot automatically
-   selects an installed lightweight local model.
+3. In ApexPilot AI Settings -> **⚡ Local & Routing**, ensure Base URL is `http://127.0.0.1:11434` and Model is `qwen2.5:3b`.
+   `qwen2.5:3b` is the recommended low-latency interview model. `phi4-mini`
+   is the preferred coding fallback, while `gemma3:4b` is a strong
+   behavioral and multilingual fallback. If the configured model is missing,
+   ApexPilot selects an installed model from the configured fallback order.
+   `qwen3:4b` remains available for manual testing but is not selected
+   automatically because its current Ollama output can include reasoning text.
 4. Click **⚡ Test Primary Connection** to verify.
 
 For meeting questions, install the optional Windows loopback backend:

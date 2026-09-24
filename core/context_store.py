@@ -69,7 +69,15 @@ DEFAULT_CONFIG = {
     ],
     "routing": {
         "auto_failover_on_rate_limit": True,
-        "fastest_first_race": False  # Speculative duel between Local LLM and Online LLM
+        "fastest_first_race": False,  # Speculative duel between Local LLM and Online LLM
+        "ollama_fallback_models": [
+            "qwen2.5:3b",
+            "phi4-mini",
+            "phi4-mini:latest",
+            "gemma3:4b",
+            "llama3.2:3b",
+            "qwen2.5-coder:7b"
+        ]
     },
     "custom_instructions": "",  # Optional user instructions to override or guide answer style
     "preferences": {

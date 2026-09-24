@@ -327,8 +327,8 @@ class TestApexPilotComplete(unittest.TestCase):
         from core.llm_client import LocalLLMClient
 
         self.assertEqual(
-            LocalLLMClient._choose_ollama_fallback(["llama3.2:3b", "qwen2.5:7b"]),
-            "llama3.2:3b",
+            LocalLLMClient._choose_ollama_fallback(["gemma3:4b", "phi4-mini:latest"]),
+            "phi4-mini:latest",
         )
 
     def test_18b_local_default_model_is_low_latency(self):
