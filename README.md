@@ -62,6 +62,9 @@ d:\interAI\run.bat
 
 ## 🧠 Connecting to Local LLMs
 
+For the complete download, configuration, verification, and troubleshooting
+instructions, see [MODEL_SETUP.md](MODEL_SETUP.md).
+
 ApexPilot AI works out-of-the-box with a built-in offline engine, but is built to harness local models for private, zero-latency inference:
 
 ### Option A: Ollama (Recommended)

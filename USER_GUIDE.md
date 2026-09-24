@@ -150,6 +150,9 @@ Every question solved is automatically indexed into a local high-speed cache (`q
 
 ## 4. Dual-Mode Engine: Local vs. Online Setup
 
+For the complete Windows model download and verification procedure, see
+[MODEL_SETUP.md](MODEL_SETUP.md).
+
 ### Option 1: 100% Offline Local LLM (Zero Cost, Total Privacy)
 1. Install [Ollama](https://ollama.com/) or [LM Studio](https://lmstudio.ai/).
 2. Pull a coding/reasoning model:
