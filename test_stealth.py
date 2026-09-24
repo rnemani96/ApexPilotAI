@@ -63,11 +63,36 @@ class TestApexPilotComplete(unittest.TestCase):
         self.assertIsInstance(extracted, str)
         self.assertTrue(len(extracted) > 0, "OCR should extract text from test image.")
 
+    def test_03b_ocr_preprocessing_preserves_capture(self):
+        """Verifies OCR preprocessing returns a usable image for screen text."""
+        img = Image.new("RGB", (640, 180), color=(30, 30, 30))
+        processed = ocr_engine.preprocess_image_for_ocr(img)
+        self.assertGreaterEqual(processed.width, img.width)
+        self.assertGreaterEqual(processed.height, img.height)
+        self.assertEqual(processed.mode, "L")
+
     def test_04_audio_question_heuristics(self):
         """Verifies Parakeet AI question detection triggers on interview questions."""
         self.assertTrue(audio_engine.is_question("Can you explain how this handles concurrency?"))
         self.assertTrue(audio_engine.is_question("How would you scale this microservice?"))
         self.assertFalse(audio_engine.is_question("Let us move on to the next topic."))
+
+    def test_04b_audio_system_device_selection(self):
+        """Verifies loopback and Stereo Mix fallback device selection."""
+        loopback = {
+            "name": "Speakers (Loopback)",
+            "hostapi": 2,
+            "max_input_channels": 2,
+        }
+        stereo_mix = {
+            "name": "Stereo Mix (Realtek)",
+            "hostapi": 3,
+            "max_input_channels": 2,
+        }
+        selected = audio_engine._find_system_audio_device([stereo_mix, loopback])
+        self.assertEqual(selected["name"], "Speakers (Loopback)")
+        selected = audio_engine._find_system_audio_device([stereo_mix])
+        self.assertEqual(selected["name"], "Stereo Mix (Realtek)")
 
     def test_05_context_store_profile(self):
         """Verifies candidate resume context injection."""
@@ -151,6 +176,12 @@ class TestApexPilotComplete(unittest.TestCase):
         fuzzy_hit = qa_cache.lookup(rephrased, threshold=0.60)
         self.assertIsNotNone(fuzzy_hit, "Fuzzy lookup should recognize similar LRU question.")
 
+        # Cache entries must not cross-contaminate answer modes.
+        self.assertIsNone(
+            qa_cache.lookup(q, mode="star_behavioral"),
+            "A coding answer must not be returned in behavioral mode.",
+        )
+
     def test_11_custom_online_endpoints(self):
         """Verifies adding and retrieving arbitrary custom online LLM endpoints."""
         endpoint = context_store.add_custom_endpoint(
@@ -226,7 +257,93 @@ class TestApexPilotComplete(unittest.TestCase):
         self.assertFalse(hud.is_click_through)
         self.assertIn("OFF", hud.click_thru_btn.text())
 
+    def test_14_audio_source_fallback_order(self):
+        """Prefers WASAPI loopback but exposes Stereo Mix as a fallback."""
+        from core.audio_capture import AudioCaptureEngine
+
+        devices = [
+            {
+                "name": "Speakers (Loopback)",
+                "hostapi": 2,
+                "max_input_channels": 2,
+            },
+            {
+                "name": "Stereo Mix (Realtek)",
+                "hostapi": 3,
+                "max_input_channels": 2,
+            },
+        ]
+        candidates = AudioCaptureEngine._find_system_audio_devices(devices)
+        self.assertEqual(len(candidates), 2)
+        self.assertTrue(candidates[0]["is_loopback"])
+        self.assertFalse(candidates[1]["is_loopback"])
+
+    def test_15_audio_response_latency_settings(self):
+        """Keeps enough audio context for complete speech recognition."""
+        self.assertEqual(audio_engine.max_segment_seconds, 6.0)
+        self.assertEqual(audio_engine.silence_duration_seconds, 0.8)
+
+    def test_16_audio_question_fragments_are_joined(self):
+        """Triggers one answer when recognition splits a question across segments."""
+        import time
+
+        detected = []
+        audio_engine.register_callbacks(on_question=detected.append)
+        try:
+            audio_engine.simulate_speech_input("interviewer", "how would you")
+            time.sleep(0.1)
+            self.assertEqual(detected, [])
+            audio_engine.simulate_speech_input(
+                "interviewer", "design a reliable event processing system"
+            )
+            time.sleep(1.2)
+            self.assertEqual(
+                detected,
+                ["how would you design a reliable event processing system"],
+            )
+        finally:
+            audio_engine.register_callbacks()
+
+    def test_17_candidate_transcript_never_triggers_answer(self):
+        """Candidate speech is transcribed/displayed but cannot trigger a response."""
+        detected = []
+        audio_engine.register_callbacks(on_question=detected.append)
+        try:
+            audio_engine.simulate_speech_input(
+                "candidate", "How would you explain this design?"
+            )
+            self.assertEqual(detected, [])
+        finally:
+            audio_engine.register_callbacks()
+
+    def test_18_ollama_fallback_model_selection(self):
+        """Selects an installed lightweight free Ollama model when configured one is absent."""
+        from core.llm_client import LocalLLMClient
+
+        self.assertEqual(
+            LocalLLMClient._choose_ollama_fallback(["llama3.2:3b", "qwen2.5:7b"]),
+            "llama3.2:3b",
+        )
+
+    def test_19_all_visible_modes_build_distinct_prompts(self):
+        """Every mode button maps to a working prompt and offline response path."""
+        from core.llm_client import LocalLLMClient
+
+        client = LocalLLMClient()
+        query = "How would you explain the design and trade-offs?"
+        modes = {
+            "stealth_coder": "Technical interview question",
+            "star_behavioral": "Interview Question",
+            "system_design": "System Design Prompt",
+            "huddle_mate": "Recent Meeting Exchange",
+            "teleprompter": "Question or Topic",
+        }
+        for mode, marker in modes.items():
+            system_prompt, user_prompt = build_prompt(mode, query)
+            self.assertIn(marker, user_prompt)
+            response = "".join(client._stream_mock_response(mode, query, "Python"))
+            self.assertTrue(response.strip(), f"Offline response missing for {mode}")
+
 
 if __name__ == "__main__":
     unittest.main()
-

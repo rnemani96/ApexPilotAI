@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QPushButton, QLineEdit, QSlider, QFrame, QApplication,
     QProgressBar, QSizeGrip
 )
-from PySide6.QtCore import Qt, QPoint, QRect, Signal, QThread, Slot
+from PySide6.QtCore import Qt, QPoint, QRect, Signal, QThread, Slot, QTimer
 from PySide6.QtGui import QFont, QColor, QPainter, QBrush, QPen, QCursor
 
 from core.win32_stealth import stealth_layer
@@ -68,6 +68,9 @@ class StreamingWorker(QThread):
 class OverlayWindow(QWidget):
     """The central stealth HUD for ApexPilot AI with frameless resizing and rapid interruption handling."""
 
+    audio_transcript_received = Signal(str, str)
+    audio_question_received = Signal(str)
+
     def __init__(self):
         super().__init__()
         self.setWindowFlags(
@@ -81,8 +84,11 @@ class OverlayWindow(QWidget):
         self.current_mode = "stealth_coder"
         self.is_click_through = False
         self.latest_full_response = ""
+        self._teleprompter_answer_started = False
         self.drag_position = QPoint()
         self.worker: StreamingWorker = None
+        self.audio_transcript_received.connect(self._display_audio_transcript)
+        self.audio_question_received.connect(self._display_audio_question)
 
         # Resizing states
         self.resizing = False
@@ -99,7 +105,16 @@ class OverlayWindow(QWidget):
 
         self._restore_geometry()
         self._init_ui()
+        self._apply_saved_opacity()
         self._setup_audio_hooks()
+
+    def _apply_saved_opacity(self):
+        opacity = float(
+            context_store.config.get("preferences", {}).get("window_opacity", 0.92)
+        )
+        value = round(max(0.2, min(1.0, opacity)) * 100)
+        self.opacity_slider.setValue(value)
+        self._on_opacity_change(value)
 
     def _restore_geometry(self):
         geom = context_store.get_window_geometry()
@@ -134,7 +149,7 @@ class OverlayWindow(QWidget):
         # 1. Top Stealth Header Bar
         header_layout = QHBoxLayout()
 
-        self.shield_badge = QLabel("🛡️ SHIELD: EXCLUDED FROM ZOOM / MEET / TEAMS")
+        self.shield_badge = QLabel("🛡️ SHIELD: VERIFYING WINDOWS CAPTURE PROTECTION")
         self.shield_badge.setStyleSheet(
             "background-color: rgba(16, 185, 129, 0.15); color: #10b981; "
             "border: 1px solid #10b981; border-radius: 4px; padding: 3px 8px; font-weight: bold; font-size: 11px;"
@@ -166,7 +181,7 @@ class OverlayWindow(QWidget):
         self.hide_btn = QPushButton("✕")
         self.hide_btn.setFixedSize(30, 26)
         self.hide_btn.setStyleSheet(self._button_style("#dc2626"))
-        self.hide_btn.clicked.connect(self.hide)
+        self.hide_btn.clicked.connect(self._exit_application)
         header_layout.addWidget(self.hide_btn)
 
         card_layout.addLayout(header_layout)
@@ -194,6 +209,18 @@ class OverlayWindow(QWidget):
 
         card_layout.addLayout(mode_layout)
         self._update_mode_buttons()
+
+        self.audio_status_label = QLabel(
+            "🎙 System audio: listening (transcript appears after speech ends)"
+        )
+        self.audio_status_label.setStyleSheet(
+            "color: #67e8f9; font-size: 10px; padding: 2px 4px;"
+        )
+        self.audio_status_label.setToolTip(
+            "System audio is captured through WASAPI loopback or Stereo Mix. "
+            "Recognized speech appears here."
+        )
+        card_layout.addWidget(self.audio_status_label)
 
         # 3. Live Question Alert Banner (Parakeet AI)
         self.question_banner = QFrame()
@@ -256,11 +283,14 @@ class OverlayWindow(QWidget):
         action_layout.addWidget(self.opacity_slider)
 
         # Tooltips for user-friendly guidance
-        self.shield_badge.setToolTip("Screen Share Protection Active:\nCompletely invisible to Zoom, Teams, Meet, Discord, and OBS.")
+        self.shield_badge.setToolTip(
+            "Uses Windows display-affinity protection when the OS accepts it. "
+            "The badge reports the verified result."
+        )
         self.teleprompter_btn.setToolTip("Dock into a discreet single-line reader under your webcam (Ctrl+Alt+T)")
         self.click_thru_btn.setToolTip("Toggle click-through mode so clicks pass directly through to your editor")
         self.settings_btn.setToolTip("Open Settings: Configure local/online LLM APIs, custom rules, and profile")
-        self.hide_btn.setToolTip("Panic Hide: Instantly hide overlay (Ctrl+Alt+H)")
+        self.hide_btn.setToolTip("Exit ApexPilot AI and stop all background services")
         self.snip_btn.setToolTip("Screen Snip Tool: Select any LeetCode problem or diagram (Ctrl+Alt+S)")
         self.copy_btn.setToolTip("Silent Copy: Copies clean code without markdown comments to clipboard (Ctrl+Alt+C)")
         self.pdf_btn.setToolTip("Open Folder: Browse all locally saved Q&A PDF documents")
@@ -292,7 +322,7 @@ class OverlayWindow(QWidget):
 - 🎙️ **Live Audio Detection:** Interacting with interviewers auto-triggers answers.
 - 👁️ **Teleprompter Mode:** Press `Ctrl + Alt + T` for a sleek top-bezel eye-contact reader.
 - 📋 **Silent Copy:** Press `Ctrl + Alt + C` to copy clean solutions instantly.
-- 🛡️ **Screen Invisibility:** 100% hidden from Zoom, Teams, Meet, Discord, and OBS.
+- 🛡️ **Screen-share protection:** Windows capture exclusion is requested and verified when supported.
 - 📁 **Instant Q&A Cache & PDF:** All solved problems are cached with 0ms retrieval and saved as PDFs.
 
 *Type your question below or press **Ctrl + Alt + S** to begin.*
@@ -312,6 +342,7 @@ class OverlayWindow(QWidget):
         # 7. Bottom Input Bar with QSizeGrip
         bottom_layout = QHBoxLayout()
         self.query_input = QLineEdit()
+        self.query_input.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.query_input.setPlaceholderText("Type follow-up question or press Ctrl+Alt+S to snip...")
         self.query_input.setStyleSheet("""
             QLineEdit {
@@ -361,15 +392,35 @@ class OverlayWindow(QWidget):
                 font-size: 11px;
                 font-weight: bold;
             }}
-            QPushButton:hover {{ filter: brightness(1.2); }}
+            QPushButton:hover {{ background-color: {bg}; }}
         """
 
     def showEvent(self, event):
         super().showEvent(event)
         if self.winId():
             hwnd = int(self.winId())
-            stealth_layer.enable_screen_share_invisibility(hwnd)
-            stealth_layer.apply_stealth_window_styles(hwnd, click_through=self.is_click_through)
+            self._protect_from_screen_capture(hwnd)
+            stealth_layer.apply_stealth_window_styles(
+                hwnd,
+                click_through=self.is_click_through,
+                allow_activation=True,
+            )
+            QTimer.singleShot(0, lambda: self._protect_from_screen_capture(hwnd))
+
+    def _protect_from_screen_capture(self, hwnd: int, attempt: int = 0):
+        """Apply capture exclusion after the native HWND is fully realized."""
+        if not self.isVisible() or not self.winId():
+            return
+        if stealth_layer.enable_screen_share_invisibility(hwnd):
+            self.shield_badge.setText("🛡️ SHIELD: SCREEN-SHARE PROTECTION ACTIVE")
+            return
+        if attempt < 3:
+            QTimer.singleShot(
+                100,
+                lambda: self._protect_from_screen_capture(hwnd, attempt + 1),
+            )
+        else:
+            self.shield_badge.setText("⚠️ SHIELD: WINDOWS PROTECTION UNAVAILABLE")
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -464,12 +515,27 @@ class OverlayWindow(QWidget):
         )
 
     def _on_audio_speech(self, speaker: str, text: str):
+        self.audio_transcript_received.emit(speaker, text)
+
+    @Slot(str, str)
+    def _display_audio_transcript(self, speaker: str, text: str):
+        source = "System" if speaker.lower() in ("system", "interviewer") else "Microphone"
+        self.audio_status_label.setText(f"🎙 {source} audio captured: {text}")
         context_store.add_transcript_entry(speaker, text)
 
     def _on_audio_question(self, question_text: str):
+        self.audio_question_received.emit(question_text)
+
+    @Slot(str)
+    def _display_audio_question(self, question_text: str):
         self.question_label.setText(f"⚡ Question detected: \"{question_text[:75]}...\"")
         self.detected_question_text = question_text
         self.question_banner.show()
+        self._auto_solve_detected_question()
+
+    def _auto_solve_detected_question(self):
+        if getattr(self, "detected_question_text", ""):
+            self.execute_query(self.detected_question_text)
 
     def _solve_detected_question(self):
         self.question_banner.hide()
@@ -493,6 +559,10 @@ class OverlayWindow(QWidget):
     def _on_snip_completed(self, text: str):
         self.show()
         if text and text.strip():
+            if text.startswith("[OCR failed]"):
+                self.query_input.setPlaceholderText(text)
+                self.query_input.clear()
+                return
             self.query_input.setText(text)
             self.execute_query(text)
 
@@ -510,12 +580,21 @@ class OverlayWindow(QWidget):
         4. Automatic local PDF generation on completion
         """
         if self.worker and self.worker.isRunning():
-            logger.info("Interruption detected! Aborting previous stream to answer new question immediately...")
+            logger.info(
+                "Interruption detected! Aborting previous stream before starting the new answer..."
+            )
             self.worker.abort()
-            self.worker.wait(100)
+            if not self.worker.wait(3000):
+                logger.warning(
+                    "Previous answer is still stopping; deferring the new question."
+                )
+                QTimer.singleShot(100, lambda: self.execute_query(query))
+                return
+            self.worker.deleteLater()
+            self.worker = None
 
         # 1. Check QA Cache for Instant Response
-        cached = qa_cache.lookup(query)
+        cached = qa_cache.lookup(query, mode=self.current_mode)
         if cached:
             cached_answer = cached.get("answer", "")
             pdf_path = cached.get("pdf_path", "")
@@ -529,6 +608,7 @@ class OverlayWindow(QWidget):
 
             if self.teleprompter_bar.isVisible():
                 self.teleprompter_bar.set_content(cached_answer)
+                self._teleprompter_answer_started = True
             return
 
         # 2. Not in cache -> Stream from LLM
@@ -536,12 +616,24 @@ class OverlayWindow(QWidget):
         self.latest_full_response = ""
         self.response_browser.setMarkdown(f"⚡ **Generating optimal solution ({self.current_mode})...**\n\n")
         self.progress_bar.show()
+        if self.teleprompter_bar.isVisible():
+            self.teleprompter_bar.set_content("Listening for the answer...")
+        self._teleprompter_answer_started = False
 
         self.worker = StreamingWorker(self.current_mode, query)
         self.worker.token_received.connect(self._on_token)
         self.worker.stream_finished.connect(self._on_stream_finished)
         self.worker.error_occurred.connect(self._on_stream_error)
+        self.worker.finished.connect(self._on_worker_finished)
         self.worker.start()
+
+    @Slot()
+    def _on_worker_finished(self):
+        """Release a worker only after Qt confirms its thread has stopped."""
+        worker = self.sender()
+        if worker is self.worker and not worker.isRunning():
+            worker.deleteLater()
+            self.worker = None
 
     @Slot(str)
     def _on_token(self, token: str):
@@ -551,7 +643,11 @@ class OverlayWindow(QWidget):
         sb.setValue(sb.maximum())
 
         if self.teleprompter_bar.isVisible():
-            self.teleprompter_bar.append_token(token)
+            if not self._teleprompter_answer_started:
+                self.teleprompter_bar.set_content(token)
+                self._teleprompter_answer_started = True
+            else:
+                self.teleprompter_bar.append_token(token)
 
     @Slot()
     def _on_stream_finished(self):
@@ -561,6 +657,13 @@ class OverlayWindow(QWidget):
 
         # Auto-save question & solution to local cache and generate local PDF
         if hasattr(self, "current_query") and self.current_query and self.latest_full_response:
+            # Do not permanently cache an outage notice as if it were an answer.
+            # The next attempt should be able to use a newly available provider.
+            cacheable = not self.latest_full_response.lstrip().startswith(
+                ("⚠️ **[All configured endpoints offline", "### Offline fallback")
+            )
+            if not cacheable:
+                return
             try:
                 qa_cache.store(self.current_query, self.latest_full_response, self.current_mode, "ai")
             except Exception as e:
@@ -599,6 +702,7 @@ class OverlayWindow(QWidget):
             self.click_thru_btn.setStyleSheet(self._button_style("#334155"))
 
     def _toggle_teleprompter_mode(self):
+        """Manually toggle the teleprompter; protection status never hides it."""
         if self.teleprompter_bar.isVisible():
             self.teleprompter_bar.hide()
             self.show()
@@ -612,9 +716,25 @@ class OverlayWindow(QWidget):
         self.teleprompter_bar.hide()
         self.show()
 
+    def _exit_application(self):
+        """Stop active work and terminate the application from the close button."""
+        if self.worker and self.worker.isRunning():
+            self.worker.abort()
+            if not self.worker.wait(5000):
+                logger.warning("Answer worker did not stop before application shutdown.")
+        self.snip_overlay.close()
+        self.teleprompter_bar.close()
+        app = QApplication.instance()
+        if app:
+            app.quit()
+
     def _open_settings(self):
         dlg = SettingsDialog(self)
         dlg.exec()
 
     def _on_opacity_change(self, val: int):
-        self.setWindowOpacity(val / 100.0)
+        opacity = max(0.2, min(1.0, val / 100.0))
+        self.setWindowOpacity(opacity)
+        self.teleprompter_bar.set_opacity(opacity)
+        context_store.config.setdefault("preferences", {})["window_opacity"] = opacity
+        context_store.save()

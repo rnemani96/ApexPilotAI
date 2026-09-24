@@ -8,7 +8,7 @@ the extracted text to the AI reasoning engine.
 """
 
 from PySide6.QtWidgets import QWidget, QApplication
-from PySide6.QtCore import Qt, QRect, QPoint, Signal
+from PySide6.QtCore import Qt, QRect, QPoint, Signal, QTimer
 from PySide6.QtGui import QPainter, QColor, QPen, QBrush, QCursor, QFont
 from core.ocr_engine import ocr_engine
 from core.win32_stealth import stealth_layer
@@ -49,7 +49,25 @@ class SnipOverlay(QWidget):
 
         # GhostPilot shield: make sure even the snipping overlay is hidden from screen share
         if self.winId():
-            stealth_layer.enable_screen_share_invisibility(int(self.winId()))
+            hwnd = int(self.winId())
+            self._protect_from_screen_capture(hwnd)
+            stealth_layer.apply_stealth_window_styles(
+                hwnd,
+                click_through=False,
+                allow_activation=False,
+            )
+            QTimer.singleShot(0, lambda: self._protect_from_screen_capture(hwnd))
+
+    def _protect_from_screen_capture(self, hwnd: int, attempt: int = 0):
+        if not self.isVisible() or not self.winId():
+            return
+        if stealth_layer.enable_screen_share_invisibility(hwnd):
+            return
+        if attempt < 3:
+            QTimer.singleShot(
+                100,
+                lambda: self._protect_from_screen_capture(hwnd, attempt + 1),
+            )
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -114,7 +132,13 @@ class SnipOverlay(QWidget):
                 extracted_text = ocr_engine.extract_text(img)
 
                 if not extracted_text:
-                    extracted_text = "[Problem Image Captured - Run OCR or Solve directly]"
+                    logger.warning("No readable text was found in the selected screen region.")
+                    self.snip_completed.emit(
+                        "[OCR failed] No readable text was found. "
+                        "Select a larger, sharper text region and try again."
+                    )
+                    self.close()
+                    return
 
                 self.snip_completed.emit(extracted_text)
             self.close()

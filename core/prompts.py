@@ -9,24 +9,22 @@ High-speed prompt templates tailored for:
 5. Teleprompter Bullets: 1-2 sentence glanceable cues for webcam eye contact.
 """
 
-STEALTH_CODER_SYSTEM_PROMPT = """You are StealthCoder, an ultra-elite competitive programming and senior software engineer copilot.
-Your job is to provide the optimal solution to the coding problem presented below.
+STEALTH_CODER_SYSTEM_PROMPT = """You are StealthCoder, a practical senior software engineer copilot.
+Give the simplest correct and efficient solution to the coding problem. Prefer clear code
+over clever abstractions and do not add unnecessary libraries or complexity.
 
 Output strictly formatted as follows:
-### 1. Intuition & Approach
-- 2-3 concise sentences explaining the optimal technique (e.g. Two Pointers, Dynamic Programming, Monotonic Queue).
-- State the exact Time Complexity: O(...) and Space Complexity: O(...).
-
-### 2. Optimal Code ({language})
+### 1. Code ({language})
 ```{language_ext}
-# Complete, optimal, production-ready code with clean variable names
+# Complete solution with clear names and only necessary code
 ```
 
-### 3. Step-by-Step Explanation (Speakable)
-- 3-4 bullet points written in first person ("First, I maintain...", "Next, we iterate...") so the candidate can speak naturally while coding.
+### 2. Approach
+- 2-4 short bullets explaining the idea.
+- State exact Time Complexity: O(...) and Space Complexity: O(...).
 
-### 4. Edge Cases & Dry Run
-- Test case analysis: null/empty inputs, single element, large numbers, boundary constraints.
+### 3. Quick Check
+- Mention the important edge cases and one short example.
 """
 
 STAR_BEHAVIORAL_SYSTEM_PROMPT = """You are an executive interview coach trained in the STAR methodology (Situation, Task, Action, Result).
@@ -99,6 +97,19 @@ Do NOT output markdown headers, code, or fluff. Only bullet points.
 """
 
 
+def is_coding_question(query: str) -> bool:
+    """Return True when a question explicitly asks for implementation or code."""
+    text = (query or "").lower()
+    coding_terms = (
+        "write code", "write a function", "implement", "code this", "coding",
+        "leetcode", "hackerrank", "algorithm", "function", "class ",
+        "sql query", "debug this", "fix this code", "give me the code",
+        "provide code", "solution in python", "solution in java",
+        "solution in javascript", "complexity",
+    )
+    return any(term in text for term in coding_terms)
+
+
 def build_prompt(mode: str, query: str, context: dict = None) -> tuple[str, str]:
     """
     Returns (system_prompt, user_prompt) based on the active mode.
@@ -112,8 +123,19 @@ def build_prompt(mode: str, query: str, context: dict = None) -> tuple[str, str]
     custom_instructions = ctx.get("custom_instructions", "").strip()
 
     if mode == "stealth_coder":
-        sys_prompt = STEALTH_CODER_SYSTEM_PROMPT.format(language=language, language_ext=lang_ext)
-        user_prompt = f"Problem to solve in {language}:\n\n{query}"
+        if is_coding_question(query):
+            sys_prompt = STEALTH_CODER_SYSTEM_PROMPT.format(
+                language=language, language_ext=lang_ext
+            )
+            user_prompt = f"Coding problem to solve in {language}:\n\n{query}"
+        else:
+            sys_prompt = (
+                "You are a concise technical interview assistant. Answer the question "
+                "directly in clear spoken language. Do not output code, markdown code "
+                "blocks, or implementation details unless the question explicitly asks "
+                "you to write or implement code."
+            )
+            user_prompt = f"Technical interview question:\n{query}"
     elif mode == "star_behavioral":
         sys_prompt = STAR_BEHAVIORAL_SYSTEM_PROMPT.format(resume_context=resume_context, job_context=job_context)
         user_prompt = f"Interview Question:\n{query}"

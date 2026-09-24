@@ -34,6 +34,7 @@ WS_EX_TOPMOST = 0x00000008
 WDA_NONE = 0x00000000
 WDA_MONITOR = 0x00000001
 WDA_EXCLUDEFROMCAPTURE = 0x00000011  # Windows 10 version 2004+ / Windows 11
+GA_ROOT = 2
 
 
 class Win32Stealth:
@@ -41,9 +42,10 @@ class Win32Stealth:
 
     def __init__(self):
         self.is_windows = sys.platform == "win32"
+        self._display_affinity_warned = False
         if self.is_windows:
-            self._user32 = ctypes.windll.user32
-            self._kernel32 = ctypes.windll.kernel32
+            self._user32 = ctypes.WinDLL("user32", use_last_error=True)
+            self._kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
             self._setup_prototypes()
         else:
             self._user32 = None
@@ -70,35 +72,94 @@ class Win32Stealth:
             self._set_window_long.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_ssize_t]
             self._set_window_long.restype = ctypes.c_ssize_t
 
+            self._user32.IsWindow.argtypes = [wintypes.HWND]
+            self._user32.IsWindow.restype = wintypes.BOOL
+
+            self._user32.GetAncestor.argtypes = [wintypes.HWND, ctypes.c_uint]
+            self._user32.GetAncestor.restype = wintypes.HWND
+
+            self._user32.GetWindowDisplayAffinity.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+            self._user32.GetWindowDisplayAffinity.restype = wintypes.BOOL
+
+            self._dwmapi = ctypes.WinDLL("dwmapi", use_last_error=True)
+            self._dwmapi.DwmIsCompositionEnabled.argtypes = [ctypes.POINTER(wintypes.BOOL)]
+            self._dwmapi.DwmIsCompositionEnabled.restype = ctypes.c_long
+
         except Exception as e:
             logger.warning(f"Failed to configure Win32 prototypes: {e}")
 
     def enable_screen_share_invisibility(self, hwnd: int) -> bool:
         """
         GhostPilot AI Core Feature:
-        Excludes the given window from screen sharing, screen recording, and screenshot capture.
-        The window remains 100% visible on the physical monitor, but is completely invisible
-        to Zoom, MS Teams, Google Meet, Discord, OBS, and Windows Snipping Tool.
+        Requests Windows display-affinity exclusion for screen sharing and capture.
+        The result is verified; callers must treat False as unprotected because
+        capture applications and Windows versions do not all honor this API.
         """
         if not self.is_windows or not hwnd:
             return False
 
         try:
+            if not self._user32.IsWindow(wintypes.HWND(hwnd)):
+                logger.debug("Skipping display affinity for invalid HWND %s", hex(hwnd))
+                return False
+            root_hwnd = self._user32.GetAncestor(wintypes.HWND(hwnd), GA_ROOT)
+            if int(root_hwnd or 0) != int(hwnd):
+                logger.warning(
+                    "Screen-share protection skipped because HWND %s is not a top-level window.",
+                    hex(hwnd),
+                )
+                return False
+
+            composition = wintypes.BOOL()
+            if hasattr(self, "_dwmapi"):
+                dwm_result = self._dwmapi.DwmIsCompositionEnabled(ctypes.byref(composition))
+                if dwm_result != 0 or not composition.value:
+                    logger.warning(
+                        "Screen-share protection unavailable: DWM composition is disabled "
+                        "or could not be queried (HRESULT %s).",
+                        dwm_result,
+                    )
+                    return False
+
             # First try WDA_EXCLUDEFROMCAPTURE (Win10 2004+ / Win11)
             result = self._user32.SetWindowDisplayAffinity(wintypes.HWND(hwnd), WDA_EXCLUDEFROMCAPTURE)
             if result:
-                logger.info(f"Screen-share protection ENABLED for HWND {hex(hwnd)} (WDA_EXCLUDEFROMCAPTURE)")
-                return True
+                affinity = wintypes.DWORD()
+                verified = self._user32.GetWindowDisplayAffinity(
+                    wintypes.HWND(hwnd),
+                    ctypes.byref(affinity),
+                )
+                if verified and affinity.value == WDA_EXCLUDEFROMCAPTURE:
+                    logger.info(
+                        "Screen-share protection ENABLED for HWND %s (WDA_EXCLUDEFROMCAPTURE)",
+                        hex(hwnd),
+                    )
+                    return True
+                logger.warning(
+                    "Windows accepted display-affinity setup but verification failed for HWND %s.",
+                    hex(hwnd),
+                )
+                return False
             
             # Fallback to WDA_MONITOR for older Windows 10 builds
-            error_code = self._kernel32.GetLastError()
-            logger.warning(f"WDA_EXCLUDEFROMCAPTURE failed (err {error_code}), trying WDA_MONITOR fallback...")
+            error_code = ctypes.get_last_error()
             fallback = self._user32.SetWindowDisplayAffinity(wintypes.HWND(hwnd), WDA_MONITOR)
             if fallback:
-                logger.info(f"Screen-share protection enabled via WDA_MONITOR for HWND {hex(hwnd)}")
+                logger.info(
+                    "Screen-share protection enabled via WDA_MONITOR for HWND %s",
+                    hex(hwnd),
+                )
                 return True
             else:
-                logger.error(f"SetWindowDisplayAffinity completely failed (err {self._kernel32.GetLastError()})")
+                if not self._display_affinity_warned:
+                    logger.warning(
+                        "Screen-share protection is unavailable for this window "
+                        "(Windows rejected WDA_EXCLUDEFROMCAPTURE with error %s "
+                        "and WDA_MONITOR fallback also failed). This is an OS/DWM "
+                        "limitation; the application will continue normally.",
+                        error_code,
+                    )
+                    self._display_affinity_warned = True
                 return False
         except Exception as e:
             logger.error(f"Exception while setting display affinity: {e}")
@@ -137,11 +198,16 @@ class Win32Stealth:
             logger.error(f"Failed to toggle click-through: {e}")
             return False
 
-    def apply_stealth_window_styles(self, hwnd: int, click_through: bool = False) -> bool:
+    def apply_stealth_window_styles(
+        self,
+        hwnd: int,
+        click_through: bool = False,
+        allow_activation: bool = True,
+    ) -> bool:
         """
         Applies full suite of stealth window styles:
         - WS_EX_TOOLWINDOW: Removes from Alt+Tab task switcher
-        - WS_EX_NOACTIVATE: Prevents stealing keyboard focus from active editor
+        - WS_EX_NOACTIVATE: Optional for passive overlays that must not take focus
         - WS_EX_TOPMOST: Stays pinned above all other windows
         - WS_EX_LAYERED: Required for alpha transparency
         """
@@ -150,10 +216,17 @@ class Win32Stealth:
 
         try:
             current_exstyle = self._get_window_long(wintypes.HWND(hwnd), GWL_EXSTYLE)
-            target_style = current_exstyle | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST | WS_EX_LAYERED
+            target_style = current_exstyle | WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED
+
+            if allow_activation:
+                target_style &= ~WS_EX_NOACTIVATE
+            else:
+                target_style |= WS_EX_NOACTIVATE
 
             if click_through:
                 target_style |= WS_EX_TRANSPARENT
+            else:
+                target_style &= ~WS_EX_TRANSPARENT
 
             self._set_window_long(wintypes.HWND(hwnd), GWL_EXSTYLE, target_style)
             return True

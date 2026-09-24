@@ -14,6 +14,7 @@ import time
 import threading
 import queue
 from typing import Generator, Optional
+from urllib.parse import urlparse
 import httpx
 import logging
 from core.context_store import context_store
@@ -35,6 +36,16 @@ class LocalLLMClient:
             limits = httpx.Limits(max_keepalive_connections=10, max_connections=20, keepalive_expiry=60.0)
             self._http_client = httpx.Client(limits=limits, timeout=httpx.Timeout(25.0, connect=3.5))
         return self._http_client
+
+    @staticmethod
+    def _chat_completions_endpoint(base_url: str) -> str:
+        """Build an OpenAI-compatible endpoint without duplicating or omitting /v1."""
+        base_url = base_url.rstrip("/")
+        parsed = urlparse(base_url)
+        path = parsed.path.rstrip("/")
+        if path.endswith("/v1") or "/v1/" in f"{path}/" or parsed.hostname == "api.perplexity.ai":
+            return f"{base_url}/chat/completions"
+        return f"{base_url}/v1/chat/completions"
 
     def abort_active_streams(self):
         """Signals any currently running streaming requests to terminate immediately."""
@@ -59,6 +70,19 @@ class LocalLLMClient:
                 resp = client.get(f"{base_url}/api/tags", timeout=2.5)
                 if resp.status_code == 200:
                     models = [m.get("name", "") for m in resp.json().get("models", [])]
+                    configured_model = config.get("model", "").strip()
+                    if not models:
+                        return False, "Ollama is reachable but no models are installed.", []
+                    if configured_model and configured_model not in models:
+                        fallback = self._choose_ollama_fallback(models)
+                        return (
+                            True,
+                            (
+                                f"Ollama online; configured model '{configured_model}' is "
+                                f"missing, using local fallback '{fallback}'."
+                            ),
+                            models,
+                        )
                     return True, f"Ollama Online ({len(models)} models available)", models
                 return False, f"Ollama responded with status {resp.status_code}", []
 
@@ -83,6 +107,21 @@ class LocalLLMClient:
             return False, f"Health check failed: {str(e)}", []
 
         return False, "Unknown provider or server unreachable", []
+
+    @staticmethod
+    def _choose_ollama_fallback(models: list[str]) -> str:
+        """Choose a small, free local model from the models already installed."""
+        preferred = (
+            "qwen2.5:3b",
+            "llama3.2:3b",
+            "phi3:mini",
+            "gemma2:2b",
+            "qwen2.5-coder:7b",
+        )
+        for candidate in preferred:
+            if candidate in models:
+                return candidate
+        return models[0] if models else "qwen2.5:3b"
 
     def stream_response(self, mode: str, query: str) -> Generator[str, None, None]:
         """
@@ -149,6 +188,7 @@ class LocalLLMClient:
         t_online.start()
 
         winner_name = None
+        winner_completed = False
         while True:
             # Check external abort
             if self._current_abort_event.is_set():
@@ -170,12 +210,20 @@ class LocalLLMClient:
                     yield data
                 elif event_type == "DONE":
                     if data == winner_name:
+                        winner_completed = True
                         break
                 elif event_type == "ERROR":
                     logger.warning(f"Duel candidate error: {data}")
             except queue.Empty:
                 if not t_local.is_alive() and not t_online.is_alive() and result_queue.empty():
                     break
+
+        # A provider can terminate without yielding a token (for example, an
+        # empty or malformed stream). Do not silently finish with no answer.
+        if not winner_completed:
+            cancel_local.set()
+            cancel_online.set()
+            yield from self._stream_with_failover(mode, query)
 
     def _stream_with_failover(self, mode: str, query: str) -> Generator[str, None, None]:
         """
@@ -263,8 +311,27 @@ class LocalLLMClient:
         if provider == "ollama":
             llm_cfg = context_store.get_llm_config()
             base_url = llm_cfg.get("base_url", "http://127.0.0.1:11434").rstrip("/")
+            model = llm_cfg.get("model", "qwen2.5:3b")
+            try:
+                tags = client.get(f"{base_url}/api/tags", timeout=3.0)
+                if tags.status_code == 200:
+                    installed = [
+                        item.get("name", "")
+                        for item in tags.json().get("models", [])
+                        if item.get("name")
+                    ]
+                    if installed and model not in installed:
+                        fallback = self._choose_ollama_fallback(installed)
+                        logger.warning(
+                            "Configured Ollama model '%s' is unavailable; using local fallback '%s'.",
+                            model,
+                            fallback,
+                        )
+                        model = fallback
+            except Exception as exc:
+                logger.debug("Unable to inspect Ollama models before streaming: %s", exc)
             payload = {
-                "model": llm_cfg.get("model", "qwen2.5-coder:7b"),
+                "model": model,
                 "messages": [{"role": "system", "content": sys_prompt}, {"role": "user", "content": user_prompt}],
                 "options": {"temperature": llm_cfg.get("temperature", 0.2), "num_predict": llm_cfg.get("max_tokens", 1500)},
                 "stream": True
@@ -272,6 +339,11 @@ class LocalLLMClient:
             with client.stream("POST", f"{base_url}/api/chat", json=payload, timeout=35.0) as resp:
                 if resp.status_code == 429:
                     raise RateLimitError("Ollama 429")
+                if resp.status_code == 404:
+                    model = payload["model"]
+                    raise RuntimeError(
+                        f"Ollama model '{model}' was not found. Run: ollama pull {model}"
+                    )
                 if resp.status_code != 200:
                     raise RuntimeError(f"Ollama HTTP {resp.status_code}")
                 for line in resp.iter_lines():
@@ -311,7 +383,7 @@ class LocalLLMClient:
             if api_key:
                 headers["Authorization"] = f"Bearer {api_key}"
 
-            endpoint = f"{base_url}/chat/completions" if base_url.endswith("/v1") else f"{base_url}/v1/chat/completions"
+            endpoint = self._chat_completions_endpoint(base_url)
 
             payload = {
                 "model": model,
@@ -386,13 +458,15 @@ class LocalLLMClient:
         """Realistic simulated response for offline instant testing."""
         custom_instructions = context_store.get_custom_instructions()
         custom_note = f"\n*(Applied Custom Instructions: '{custom_instructions}')*\n\n" if custom_instructions else ""
+        question = " ".join(query.split())
+        question_preview = question[:500] if question else "the submitted question"
 
         if mode == "stealth_coder":
-            content = f"""{custom_note}### 1. Intuition & Approach
-- We use a **HashMap (Hash Table)** to store previously seen numbers and their indices in a single pass.
-- For each element `x`, we check if the complement `target - x` exists in our map. This transforms an `O(N^2)` brute-force search into an optimal **O(N)** solution.
-- **Time Complexity:** O(N) single pass.
-- **Space Complexity:** O(N) auxiliary space.
+            if "two sum" in question.lower():
+                content = f"""{custom_note}### 1. Intuition & Approach
+- Use a hash map from value to index while scanning the array once.
+- For each value, check whether its complement already exists.
+- **Time Complexity:** O(N). **Space Complexity:** O(N).
 
 ### 2. Optimal Code ({language})
 ```{language.lower()}
@@ -407,23 +481,55 @@ def solve_problem(nums: list[int], target: int) -> list[int]:
 ```
 
 ### 3. Step-by-Step Explanation (Speakable)
-- *"First, I maintain a hash map of visited items."*
-- *"For every item, I compute the required complement needed to hit the target."*
-- *"If the complement is present, we return the pair immediately in O(1) time."*
+- *"I store each value and its index as I scan."*
+- *"For every value, I calculate the complement needed to reach the target."*
+- *"If that complement is already stored, I return both indices."*
 
 ### 4. Edge Cases & Dry Run
-- **Negative values:** Subtraction arithmetic preserves exact target.
-- **Duplicates:** Handled correctly since lookup precedes map insertion.
+- Handles duplicates, negative values, an empty input, and a missing pair.
+"""
+            else:
+                content = f"""{custom_note}### Offline fallback
+The configured LLM endpoints were unavailable, so I did not invent a solution for this question:
+
+> {question_preview}
+
+Connect Ollama, llama.cpp, LM Studio, or an enabled online provider in Settings to generate the exact algorithm, code, complexity analysis, and edge cases for this problem.
 """
         elif mode == "star_behavioral":
-            content = f"""{custom_note}- **Situation**: During a peak traffic event, lock contention in our relational database caused P99 latency spikes of 420ms.
+            content = f"""{custom_note}- **Question**: {question_preview}
+- **Situation**: Describe the specific project, incident, or challenge that best answers the question.
 - **Task**: I owned the mission to stabilize write throughput and eliminate deadlocks within 48 hours.
 - **Action**: I introduced an asynchronous Redis buffer and Kafka decoupled worker queue, batching commits in 50ms windows.
 - **Result**: P99 latency dropped by 68% to 134ms, saving $45,000 monthly in infrastructure costs.
 - **Key Takeaway**: Decouple synchronous write paths from relational locks.
 """
+        elif mode == "system_design":
+            content = f"""{custom_note}### Offline fallback
+The system-design question was received:
+
+> {question_preview}
+
+Use this discussion structure when answering: clarify requirements, estimate scale, define the API and data model, draw the high-level architecture, then cover partitioning, caching, consistency, failure handling, and observability. Connect a configured LLM for a concrete design.
+"""
+        elif mode == "huddle_mate":
+            content = f"""{custom_note}### Meeting exchange received
+> {question_preview}
+
+### Suggested response
+- Confirm the decision or unresolved issue in one sentence.
+- State the next action, owner, and expected deadline.
+- Ask one clarifying question before committing to scope.
+"""
+        elif mode == "teleprompter":
+            content = f"""{custom_note}- Address the question directly: {question_preview}
+- Lead with the outcome, then give one supporting example.
+- Mention a measurable result or trade-off.
+- Close by checking whether the interviewer wants more detail.
+"""
         else:
-            content = f"""{custom_note}- Be direct, confident, and highlight measurable technical impact.
+            content = f"""{custom_note}- Question received: {question_preview}
+- Be direct, confident, and highlight measurable technical impact.
 - Structure explanations with high-level intuition before deep technical dives.
 """
 

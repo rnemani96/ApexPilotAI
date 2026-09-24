@@ -76,7 +76,12 @@ class QACache:
         except Exception as e:
             logger.error(f"Failed to save QA cache: {e}")
 
-    def lookup(self, raw_query: str, threshold: float = 0.80) -> Optional[dict]:
+    def lookup(
+        self,
+        raw_query: str,
+        threshold: float = 0.80,
+        mode: Optional[str] = None,
+    ) -> Optional[dict]:
         """
         Looks up a question in cache.
         Returns the cached dictionary if an exact or high-similarity match is found;
@@ -90,6 +95,13 @@ class QACache:
         best_score = 0.0
 
         for entry in reversed(self.entries):
+            answer = entry.get("answer", "")
+            if answer.lstrip().startswith(
+                ("⚠️ **[All configured endpoints offline", "### Offline fallback")
+            ):
+                continue
+            if mode and entry.get("mode", "stealth_coder") != mode:
+                continue
             cached_norm = entry.get("normalized_question", "")
 
             # 1. Exact normalized match

@@ -3,11 +3,11 @@ ApexPilot AI - Webcam Teleprompter HUD (GhostPilot AI Feature)
 ==============================================================
 Slim, horizontal floating HUD placed directly below the monitor's webcam.
 Enables candidate to read AI talking points while maintaining direct eye contact
-with the interviewer. Fully protected with SetWindowDisplayAffinity.
+with the interviewer. Uses Windows display-affinity protection when supported.
 """
 
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton, QSlider, QApplication
-from PySide6.QtCore import Qt, QPoint, Signal
+from PySide6.QtCore import Qt, QPoint, Signal, QTimer
 from PySide6.QtGui import QFont, QColor, QPainter, QBrush
 from core.win32_stealth import stealth_layer
 import logging
@@ -28,10 +28,14 @@ class TeleprompterBar(QWidget):
             Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         self.drag_position = QPoint()
         self.bullets = ["ApexPilot Teleprompter Ready. Stand by for live talking points..."]
         self.current_index = 0
+        self._scroll_timer = QTimer(self)
+        self._scroll_timer.setInterval(3500)
+        self._scroll_timer.timeout.connect(self._scroll_to_next_bullet)
 
         self._init_ui()
         self._position_under_webcam()
@@ -92,20 +96,46 @@ class TeleprompterBar(QWidget):
         y = 12  # 12px below top bezel
         self.setGeometry(x, y, 700, 46)
 
+    def set_opacity(self, opacity: float):
+        """Apply the shared HUD opacity to the teleprompter window."""
+        self.setWindowOpacity(max(0.2, min(1.0, float(opacity))))
+
     def showEvent(self, event):
         super().showEvent(event)
+        self.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
         # Enforce GhostPilot screen-share invisibility
         if self.winId():
-            stealth_layer.enable_screen_share_invisibility(int(self.winId()))
-            stealth_layer.apply_stealth_window_styles(int(self.winId()), click_through=False)
+            hwnd = int(self.winId())
+            self._protect_from_screen_capture(hwnd)
+            stealth_layer.apply_stealth_window_styles(
+                hwnd,
+                click_through=False,
+                allow_activation=True,
+            )
+            QTimer.singleShot(0, lambda: self._protect_from_screen_capture(hwnd))
+
+    def _protect_from_screen_capture(self, hwnd: int, attempt: int = 0):
+        """Try protection without changing the user's visibility choice."""
+        if not self.isVisible() or not self.winId():
+            return
+        if stealth_layer.enable_screen_share_invisibility(hwnd):
+            return
+        if attempt < 3:
+            QTimer.singleShot(
+                100,
+                lambda: self._protect_from_screen_capture(hwnd, attempt + 1),
+            )
+        else:
+            self.shield_label.setText("⚠️ SHIELD UNAVAILABLE")
 
     def set_content(self, text: str):
-        """Parses LLM output into clean, speakable teleprompter lines."""
+        """Loads answer lines and starts automatic teleprompter scrolling."""
         lines = [line.strip().lstrip("-*•>0123456789. ") for line in text.split("\n") if line.strip()]
         if lines:
             self.bullets = lines
             self.current_index = 0
             self._update_display()
+            self._scroll_timer.start()
 
     def append_token(self, token: str):
         """Streams live tokens directly into the teleprompter."""
@@ -113,16 +143,31 @@ class TeleprompterBar(QWidget):
             self.bullets = [""]
         self.bullets[-1] += token
         self._update_display()
+        if not self._scroll_timer.isActive():
+            self._scroll_timer.start()
 
     def prev_bullet(self):
+        self._restart_scroll_timer()
         if self.current_index > 0:
             self.current_index -= 1
             self._update_display()
 
     def next_bullet(self):
+        self._restart_scroll_timer()
         if self.current_index < len(self.bullets) - 1:
             self.current_index += 1
             self._update_display()
+
+    def _scroll_to_next_bullet(self):
+        """Advance continuously through the answer while it is visible."""
+        if not self.isVisible() or len(self.bullets) <= 1:
+            return
+        self.current_index = (self.current_index + 1) % len(self.bullets)
+        self._update_display()
+
+    def _restart_scroll_timer(self):
+        if self.isVisible() and len(self.bullets) > 1:
+            self._scroll_timer.start()
 
     def _update_display(self):
         if 0 <= self.current_index < len(self.bullets):
@@ -144,8 +189,20 @@ class TeleprompterBar(QWidget):
     # Window Dragging
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
             self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
 
     def mouseMoveEvent(self, event):
         if event.buttons() == Qt.MouseButton.LeftButton:
             self.move(event.globalPosition().toPoint() - self.drag_position)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Left:
+            self.prev_bullet()
+            event.accept()
+            return
+        if event.key() == Qt.Key.Key_Right:
+            self.next_bullet()
+            event.accept()
+            return
+        super().keyPressEvent(event)

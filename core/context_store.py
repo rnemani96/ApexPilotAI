@@ -7,7 +7,9 @@ rate-limit failover configuration, and window geometry.
 """
 
 import json
-import os
+import copy
+import time
+import threading
 from pathlib import Path
 import logging
 
@@ -75,7 +77,8 @@ DEFAULT_CONFIG = {
         "window_opacity": 0.92,
         "screen_share_shield": True,
         "click_through": False,
-        "teleprompter_mode": False
+        "teleprompter_mode": False,
+        "system_audio_only": False
     },
     "window_geometry": {
         "x": 200,
@@ -105,34 +108,54 @@ class ContextStore:
         self.config_path = config_path
         self.config = self._load()
         self.session_transcript = []
+        self._save_lock = threading.Lock()
 
     def _load(self) -> dict:
         if self.config_path.exists():
             try:
                 with open(self.config_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    merged = DEFAULT_CONFIG.copy()
-                    for k, v in data.items():
-                        if isinstance(v, dict) and k in merged:
-                            merged_sub = merged[k].copy()
-                            merged_sub.update(v)
-                            merged[k] = merged_sub
-                        else:
-                            merged[k] = v
-                    return merged
+                    return self._deep_merge(copy.deepcopy(DEFAULT_CONFIG), data)
             except Exception as e:
                 logger.error(f"Error loading config, using defaults: {e}")
-                return DEFAULT_CONFIG.copy()
-        return DEFAULT_CONFIG.copy()
+        return copy.deepcopy(DEFAULT_CONFIG)
+
+    @staticmethod
+    def _deep_merge(defaults: dict, overrides: dict) -> dict:
+        """Merge nested configuration sections without dropping default keys."""
+        for key, value in overrides.items():
+            if isinstance(value, dict) and isinstance(defaults.get(key), dict):
+                ContextStore._deep_merge(defaults[key], value)
+            else:
+                defaults[key] = value
+        return defaults
 
     def save(self):
         """Persists current configuration to disk."""
-        try:
-            with open(self.config_path, "w", encoding="utf-8") as f:
-                json.dump(self.config, f, indent=2)
-            logger.info("Saved config to disk.")
-        except Exception as e:
-            logger.error(f"Failed to save config: {e}")
+        with self._save_lock:
+            temp_path = self.config_path.with_name(
+                f"{self.config_path.name}.{threading.get_ident()}.tmp"
+            )
+            self.config_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                with open(temp_path, "w", encoding="utf-8") as f:
+                    json.dump(self.config, f, indent=2)
+                for attempt in range(3):
+                    try:
+                        temp_path.replace(self.config_path)
+                        logger.debug("Saved config to disk.")
+                        break
+                    except PermissionError:
+                        if attempt == 2:
+                            raise
+                        time.sleep(0.05 * (attempt + 1))
+            except Exception as e:
+                logger.error(f"Failed to save config: {e}")
+            finally:
+                try:
+                    temp_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
     def get_llm_config(self) -> dict:
         return self.config.get("llm", DEFAULT_CONFIG["llm"])
@@ -145,7 +168,7 @@ class ContextStore:
 
     def add_custom_endpoint(self, name: str, base_url: str, api_key: str, model: str, enabled: bool = True) -> dict:
         endpoint = {
-            "id": f"custom_{int(__import__('time').time() * 1000)}",
+            "id": f"custom_{int(time.time() * 1000)}",
             "name": name,
             "base_url": base_url.rstrip("/"),
             "api_key": api_key,

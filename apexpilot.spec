@@ -14,13 +14,15 @@ hidden_imports = [
     'PySide6.QtWidgets',
     'httpx',
     'httpcore',
-    'Pillow',
     'PIL',
     'PIL.Image',
     'PIL.ImageGrab',
     'keyboard',
     'numpy',
     'sounddevice',
+    'soundcard',
+    'speech_recognition',
+    'pocketsphinx',
     '_cffi_backend'
 ]
 

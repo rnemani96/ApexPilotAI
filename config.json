@@ -45,16 +45,7 @@
       "enabled": false
     }
   },
-  "custom_endpoints": [
-    {
-      "id": "custom_1790146391492",
-      "name": "OpenRouter Test",
-      "base_url": "https://openrouter.ai/api/v1",
-      "api_key": "sk-or-test12345",
-      "model": "anthropic/claude-3.5-sonnet",
-      "enabled": true
-    }
-  ],
+  "custom_endpoints": [],
   "routing": {
     "auto_failover_on_rate_limit": true,
     "fastest_first_race": false
@@ -62,10 +53,11 @@
   "custom_instructions": "",
   "preferences": {
     "coding_language": "Go",
-    "window_opacity": 0.9,
+    "window_opacity": 1.0,
     "screen_share_shield": true,
     "click_through": false,
-    "teleprompter_mode": false
+    "teleprompter_mode": false,
+    "system_audio_only": false
   },
   "window_geometry": {
     "x": 250,

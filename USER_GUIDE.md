@@ -1,6 +1,6 @@
 # ApexPilot AI — Comprehensive User Guide & Visual Manual
 
-**ApexPilot AI** is the ultra-fast, 100% invisible desktop copilot combining the best features of **GhostPilot AI**, **StealthCoder**, **Parakeet AI**, **HuddleMate**, and **Final Round AI**. It runs locally with Ollama/LM Studio or connects to an unlimited pool of online LLMs (Groq 300+ tok/s, ChatGPT, Grok, Claude, DeepSeek, Gemini, OpenRouter) with automatic 429 rate-limit failover and speculative race duels.
+**ApexPilot AI** is a low-latency desktop copilot combining the best features of **GhostPilot AI**, **StealthCoder**, **Parakeet AI**, **HuddleMate**, and **Final Round AI**. It requests Windows capture exclusion when supported and reports when the operating system cannot provide it. It runs locally with Ollama/LM Studio or connects to configured online LLMs with automatic rate-limit failover.
 
 ---
 
@@ -156,10 +156,25 @@ Every question solved is automatically indexed into a local high-speed cache (`q
    ```bash
    ollama pull qwen2.5-coder:7b
    # or for smaller RAM:
+   ollama pull qwen2.5:3b
+   # or
    ollama pull llama3.2:3b
    ```
 3. In ApexPilot AI Settings -> **⚡ Local & Routing**, ensure Base URL is `http://127.0.0.1:11434` and Model is `qwen2.5-coder:7b`.
+   `qwen2.5:3b` is the recommended free fallback for limited-memory
+   computers. If the configured model is missing, ApexPilot automatically
+   selects an installed lightweight local model.
 4. Click **⚡ Test Primary Connection** to verify.
+
+For meeting questions, install the optional Windows loopback backend:
+
+```powershell
+.\.venv\Scripts\pip.exe install SoundCard
+```
+
+ApexPilot uses speaker loopback first and Stereo Mix as a fallback. Candidate
+microphone speech is shown as a transcript, while interviewer/system speech is
+the only source that automatically starts an answer.
 
 ### Option 2: Ultra-Fast Cloud LLMs (Sub-Second Response)
 1. In Settings -> **🌐 Online API Pool**, paste your API key for:

@@ -9,17 +9,27 @@ import sys
 import os
 from pathlib import Path
 import logging
+from logging.handlers import RotatingFileHandler
 
 # Ensure project root is in sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# Setup logging
+# Setup console and persistent rotating logging.
+LOG_DIR = PROJECT_ROOT / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE = LOG_DIR / "apexpilot.log"
+file_handler = RotatingFileHandler(
+    LOG_FILE,
+    maxBytes=5 * 1024 * 1024,
+    backupCount=3,
+    encoding="utf-8",
+)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logging.StreamHandler()]
+    handlers=[logging.StreamHandler(), file_handler],
 )
 logger = logging.getLogger("ApexPilot")
 
@@ -31,6 +41,7 @@ from ui.overlay_window import OverlayWindow
 from core.hotkey_manager import hotkey_manager
 from core.audio_capture import audio_engine
 from core.llm_client import llm_client
+from core.context_store import context_store
 
 
 def create_tray_icon(app: QApplication, overlay: OverlayWindow) -> QSystemTrayIcon:
@@ -76,8 +87,10 @@ def main():
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
-
     app = QApplication(sys.argv)
+    app.setApplicationName("ApexPilot")
+    app.setApplicationDisplayName("ApexPilot")
+    app.setOrganizationName("ApexPilot")
     app.setApplicationName("ApexPilot AI")
     app.setQuitOnLastWindowClosed(False)  # Remains active in tray when hidden
 
@@ -108,8 +121,12 @@ def main():
     hotkey_manager.click_through_triggered.connect(overlay._toggle_click_through)
     hotkey_manager.start()
 
-    # Start audio capture engine
-    audio_engine.start_capture()
+    # Capture both meeting/system output and the candidate microphone by
+    # default. Only interviewer/system transcripts can trigger answers.
+    system_audio_only = bool(
+        context_store.config.get("preferences", {}).get("system_audio_only", False)
+    )
+    audio_engine.start_capture(system_audio_only=system_audio_only)
 
     logger.info("ApexPilot AI initialized successfully.")
     logger.info("Press Ctrl+Alt+H for Panic Hide/Show | Ctrl+Alt+S to Snip LeetCode")

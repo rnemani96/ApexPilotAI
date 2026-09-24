@@ -12,8 +12,23 @@ __pycache__/
 # PyInstaller Build Artifacts
 build/
 dist/
+installer_dist/
 
 # Logs and Temp
 *.log
+logs/
+*.tmp
+*.temp
+
+# Runtime-generated interview data
+cache/*.json
+saved_interviews/
+*.pdf
+
+# Local IDE settings
+.idea/
+
+# Local configuration overrides
+config.local.json
 .DS_Store
 Thumbs.db
