@@ -62,8 +62,8 @@ class AudioCaptureEngine:
         self.energy_threshold = 0.005  # Quiet meeting/system audio VAD threshold
         # Keep enough context for speech recognition to hear a complete
         # interview question. Shorter windows frequently produce fragments.
-        self.max_segment_seconds = 6.0
-        self.silence_duration_seconds = 0.8
+        self.max_segment_seconds = 8.0
+        self.silence_duration_seconds = 1.2
         self._streams = []
         self._loopback_thread = None
         self._loopback_stop = threading.Event()
@@ -104,6 +104,44 @@ class AudioCaptureEngine:
                 return True
         return False
 
+    @staticmethod
+    def _has_enough_question_context(text: str) -> bool:
+        """Accept punctuation-free conversational questions after ASR fragmentation."""
+        words = re.findall(r"[A-Za-z']+", text or "")
+        if len(words) < 4:
+            return False
+        normalized = " ".join(words).lower()
+        if re.search(r"\b(thank you|thanks|you are welcome|goodbye|see you)\b", normalized):
+            return False
+        question_leads = (
+            "how ",
+            "what ",
+            "why ",
+            "when ",
+            "where ",
+            "which ",
+            "who ",
+            "can you ",
+            "could you ",
+            "would you ",
+            "will you ",
+            "are you ",
+            "do you ",
+            "did you ",
+            "have you ",
+            "tell me ",
+            "talk me ",
+            "walk me ",
+            "explain ",
+            "describe ",
+            "your experience ",
+            "your approach ",
+            "let's say ",
+            "suppose ",
+            "imagine ",
+        )
+        return any(normalized.startswith(lead) for lead in question_leads)
+
     def simulate_speech_input(self, speaker: str, text: str):
         """Simulates speech input for testing or UI demo."""
         if self._on_speech_callback:
@@ -123,7 +161,8 @@ class AudioCaptureEngine:
             if self._question_timer:
                 self._question_timer.cancel()
                 self._question_timer = None
-        if not self.is_question(combined):
+        question_ready = self.is_question(combined) or self._has_enough_question_context(combined)
+        if not question_ready:
             return
 
         normalized = re.sub(r"\s+", " ", combined).strip().lower()
@@ -133,7 +172,7 @@ class AudioCaptureEngine:
             # Wait briefly for the remaining recognition segment. This avoids
             # answering a partial question while the interviewer is speaking.
             self._question_timer = threading.Timer(
-                2.5, self._emit_pending_question, args=(combined, normalized)
+                1.5, self._emit_pending_question, args=(combined, normalized)
             )
             self._question_timer.daemon = True
             self._question_timer.start()
@@ -146,6 +185,10 @@ class AudioCaptureEngine:
             self._last_detected_question = normalized
             self._question_fragments = []
             self._question_timer = None
+        if not (self.is_question(question) or self._has_enough_question_context(question)):
+            logger.info("Interviewer transcript did not contain a complete question: %s", question)
+            return
+        logger.info("Interviewer question detected: %s", question)
         if self._on_question_detected:
             self._on_question_detected(question)
 
@@ -411,7 +454,7 @@ class AudioCaptureEngine:
         audio_bytes = bytes(self._speech_buffers.pop(speaker, bytearray()))
         started = self._speech_started.pop(speaker, now)
         self._speech_last_voice.pop(speaker, None)
-        if now - started >= 0.4 and audio_bytes:
+        if now - started >= 1.0 and audio_bytes:
             self._transcription_queue.put((speaker, audio_bytes))
             logger.info(
                 "Queued %s speech segment for transcription (%.1fs, %d bytes).",

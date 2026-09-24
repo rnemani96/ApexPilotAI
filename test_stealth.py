@@ -286,8 +286,8 @@ class TestApexPilotComplete(unittest.TestCase):
 
     def test_15_audio_response_latency_settings(self):
         """Keeps enough audio context for complete speech recognition."""
-        self.assertEqual(audio_engine.max_segment_seconds, 6.0)
-        self.assertEqual(audio_engine.silence_duration_seconds, 0.8)
+        self.assertEqual(audio_engine.max_segment_seconds, 8.0)
+        self.assertEqual(audio_engine.silence_duration_seconds, 1.2)
 
     def test_16_audio_question_fragments_are_joined(self):
         """Triggers one answer when recognition splits a question across segments."""
@@ -302,7 +302,7 @@ class TestApexPilotComplete(unittest.TestCase):
             audio_engine.simulate_speech_input(
                 "interviewer", "design a reliable event processing system"
             )
-            time.sleep(2.8)
+            time.sleep(1.8)
             self.assertEqual(
                 detected,
                 ["how would you design a reliable event processing system"],
