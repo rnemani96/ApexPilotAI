@@ -50,12 +50,12 @@ class SnipOverlay(QWidget):
         # GhostPilot shield: make sure even the snipping overlay is hidden from screen share
         if self.winId():
             hwnd = int(self.winId())
-            self._protect_from_screen_capture(hwnd)
             stealth_layer.apply_stealth_window_styles(
                 hwnd,
                 click_through=False,
                 allow_activation=False,
             )
+            self._protect_from_screen_capture(hwnd)
             QTimer.singleShot(0, lambda: self._protect_from_screen_capture(hwnd))
 
     def _protect_from_screen_capture(self, hwnd: int, attempt: int = 0):

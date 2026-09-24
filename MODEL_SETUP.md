@@ -161,7 +161,7 @@ Open ApexPilot settings and configure **Local & Routing**:
 | Base URL | `http://127.0.0.1:11434` |
 | Model | `qwen2.5:3b` |
 | Temperature | `0.2` |
-| Maximum tokens | `1500` |
+| Maximum tokens | `900` |
 | Automatic failover | Enabled |
 
 Then click **Test Primary Connection** or **Test Local LLM Connection**.
@@ -176,7 +176,7 @@ The checked-in `config.json` already contains the intended local defaults:
     "base_url": "http://127.0.0.1:11434",
     "model": "qwen2.5:3b",
     "temperature": 0.2,
-    "max_tokens": 1500,
+    "max_tokens": 900,
     "timeout_seconds": 15
   },
   "routing": {
@@ -259,7 +259,7 @@ Set-Location D:\interAI
 The expected result is currently:
 
 ```text
-Ran 23 tests
+Ran 24 tests
 OK
 ```
 

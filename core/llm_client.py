@@ -30,6 +30,7 @@ class LocalLLMClient:
         self._http_client = None
         self._current_abort_event = threading.Event()
         self._abort_lock = threading.Lock()
+        self._ollama_runtime_model = None
 
     def get_client(self) -> httpx.Client:
         if self._http_client is None or self._http_client.is_closed:
@@ -78,6 +79,7 @@ class LocalLLMClient:
                             models,
                             context_store.get_routing_config().get("ollama_fallback_models"),
                         )
+                        self._ollama_runtime_model = fallback
                         return (
                             True,
                             (
@@ -86,6 +88,7 @@ class LocalLLMClient:
                             ),
                             models,
                         )
+                    self._ollama_runtime_model = configured_model or models[0]
                     return True, f"Ollama Online ({len(models)} models available)", models
                 return False, f"Ollama responded with status {resp.status_code}", []
 
@@ -317,32 +320,13 @@ class LocalLLMClient:
         if provider == "ollama":
             llm_cfg = context_store.get_llm_config()
             base_url = llm_cfg.get("base_url", "http://127.0.0.1:11434").rstrip("/")
-            model = llm_cfg.get("model", "qwen2.5:3b")
-            try:
-                tags = client.get(f"{base_url}/api/tags", timeout=3.0)
-                if tags.status_code == 200:
-                    installed = [
-                        item.get("name", "")
-                        for item in tags.json().get("models", [])
-                        if item.get("name")
-                    ]
-                    if installed and model not in installed:
-                        fallback = self._choose_ollama_fallback(
-                            installed,
-                            context_store.get_routing_config().get("ollama_fallback_models"),
-                        )
-                        logger.warning(
-                            "Configured Ollama model '%s' is unavailable; using local fallback '%s'.",
-                            model,
-                            fallback,
-                        )
-                        model = fallback
-            except Exception as exc:
-                logger.debug("Unable to inspect Ollama models before streaming: %s", exc)
+            model = self._ollama_runtime_model or llm_cfg.get("model", "qwen2.5:3b")
+            # Model availability is checked at startup. Avoid an additional
+            # /api/tags round trip for every detected question.
             payload = {
                 "model": model,
                 "messages": [{"role": "system", "content": sys_prompt}, {"role": "user", "content": user_prompt}],
-                "options": {"temperature": llm_cfg.get("temperature", 0.2), "num_predict": llm_cfg.get("max_tokens", 1500)},
+                "options": {"temperature": llm_cfg.get("temperature", 0.2), "num_predict": llm_cfg.get("max_tokens", 900)},
                 "stream": True
             }
             # Qwen 3 can spend the whole short interview budget in hidden

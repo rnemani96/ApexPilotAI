@@ -174,7 +174,7 @@ To verify all system subsystems, display affinity hooks, OCR engines, cache, PDF
 ```powershell
 .\.venv\Scripts\python.exe test_stealth.py
 ```
-The verification suite currently contains 23 tests covering:
+The verification suite currently contains 24 tests covering:
 - Win32 Stealth Layer (`WDA_EXCLUDEFROMCAPTURE`)
 - Real-time LLM Streaming Generator across 5 modes
 - Windows.Media.Ocr Native Text Recognition

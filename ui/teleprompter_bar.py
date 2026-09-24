@@ -107,13 +107,14 @@ class TeleprompterBar(QWidget):
         # Enforce GhostPilot screen-share invisibility
         if self.winId():
             hwnd = int(self.winId())
-            self._protect_from_screen_capture(hwnd)
             stealth_layer.apply_stealth_window_styles(
                 hwnd,
                 click_through=False,
                 allow_activation=True,
             )
+            self._protect_from_screen_capture(hwnd)
             QTimer.singleShot(0, lambda: self._protect_from_screen_capture(hwnd))
+            QTimer.singleShot(250, lambda: self._protect_from_screen_capture(hwnd))
 
     def _protect_from_screen_capture(self, hwnd: int, attempt: int = 0):
         """Try protection without changing the user's visibility choice."""

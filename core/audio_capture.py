@@ -78,7 +78,9 @@ class AudioCaptureEngine:
         self._question_lock = threading.Lock()
         self._buffer_lock = threading.Lock()
         self._transcription_queue = queue.Queue()
+        self._candidate_transcription_queue = queue.Queue()
         self._transcription_thread = None
+        self._candidate_transcription_thread = None
         self._transcriber_warning_logged = False
         self._whisper_model = None
         self._whisper_model_name = None
@@ -199,9 +201,16 @@ class AudioCaptureEngine:
         self.is_capturing = True
         self._transcription_thread = threading.Thread(
             target=self._transcription_worker,
+            args=(self._transcription_queue,),
             daemon=True,
         )
         self._transcription_thread.start()
+        self._candidate_transcription_thread = threading.Thread(
+            target=self._transcription_worker,
+            args=(self._candidate_transcription_queue,),
+            daemon=True,
+        )
+        self._candidate_transcription_thread.start()
         self._thread = threading.Thread(
             target=self._capture_worker,
             args=(system_audio_only,),
@@ -231,8 +240,14 @@ class AudioCaptureEngine:
             self._loopback_thread.join(timeout=1.0)
         self._loopback_thread = None
         self._transcription_queue.put(None)
+        self._candidate_transcription_queue.put(None)
         if self._transcription_thread and self._transcription_thread.is_alive():
             self._transcription_thread.join(timeout=2.0)
+        if (
+            self._candidate_transcription_thread
+            and self._candidate_transcription_thread.is_alive()
+        ):
+            self._candidate_transcription_thread.join(timeout=2.0)
         logger.info("Audio capture engine stopped.")
 
     def _capture_worker(self, system_audio_only: bool = False):
@@ -455,7 +470,12 @@ class AudioCaptureEngine:
         started = self._speech_started.pop(speaker, now)
         self._speech_last_voice.pop(speaker, None)
         if now - started >= 1.0 and audio_bytes:
-            self._transcription_queue.put((speaker, audio_bytes))
+            target_queue = (
+                self._transcription_queue
+                if speaker == "interviewer"
+                else self._candidate_transcription_queue
+            )
+            target_queue.put((speaker, audio_bytes))
             logger.info(
                 "Queued %s speech segment for transcription (%.1fs, %d bytes).",
                 speaker,
@@ -475,10 +495,10 @@ class AudioCaptureEngine:
         target_positions = np.linspace(0.0, 1.0, target_length, endpoint=False)
         return np.interp(target_positions, source_positions, source_mono).astype(np.float32)
 
-    def _transcription_worker(self):
+    def _transcription_worker(self, transcription_queue):
         """Transcribe completed speech segments off the sounddevice callback."""
         while True:
-            item = self._transcription_queue.get()
+            item = transcription_queue.get()
             if item is None:
                 return
             speaker, audio_bytes = item

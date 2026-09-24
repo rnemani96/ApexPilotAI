@@ -399,13 +399,14 @@ class OverlayWindow(QWidget):
         super().showEvent(event)
         if self.winId():
             hwnd = int(self.winId())
-            self._protect_from_screen_capture(hwnd)
             stealth_layer.apply_stealth_window_styles(
                 hwnd,
                 click_through=self.is_click_through,
                 allow_activation=True,
             )
+            self._protect_from_screen_capture(hwnd)
             QTimer.singleShot(0, lambda: self._protect_from_screen_capture(hwnd))
+            QTimer.singleShot(250, lambda: self._protect_from_screen_capture(hwnd))
 
     def _protect_from_screen_capture(self, hwnd: int, attempt: int = 0):
         """Apply capture exclusion after the native HWND is fully realized."""

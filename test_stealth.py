@@ -289,6 +289,13 @@ class TestApexPilotComplete(unittest.TestCase):
         self.assertEqual(audio_engine.max_segment_seconds, 8.0)
         self.assertEqual(audio_engine.silence_duration_seconds, 1.2)
 
+    def test_15b_audio_uses_independent_transcription_queues(self):
+        """Candidate speech cannot delay interviewer transcription."""
+        self.assertIsNot(
+            audio_engine._transcription_queue,
+            audio_engine._candidate_transcription_queue,
+        )
+
     def test_16_audio_question_fragments_are_joined(self):
         """Triggers one answer when recognition splits a question across segments."""
         import time

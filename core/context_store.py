@@ -23,7 +23,7 @@ DEFAULT_CONFIG = {
         "base_url": "http://127.0.0.1:11434",
         "model": "qwen2.5:3b",
         "temperature": 0.2,
-        "max_tokens": 1500,
+        "max_tokens": 900,
         "timeout_seconds": 15
     },
     "online_providers": {
