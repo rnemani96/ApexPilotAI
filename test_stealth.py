@@ -75,6 +75,12 @@ class TestApexPilotComplete(unittest.TestCase):
         """Verifies Parakeet AI question detection triggers on interview questions."""
         self.assertTrue(audio_engine.is_question("Can you explain how this handles concurrency?"))
         self.assertTrue(audio_engine.is_question("How would you scale this microservice?"))
+        self.assertTrue(audio_engine.is_question("And how will the function of this service work?"))
+        self.assertTrue(audio_engine.is_question("Are you using a queue for backpressure?"))
+        self.assertTrue(audio_engine.is_question("I'd like to hear how you handled the migration."))
+        self.assertTrue(audio_engine.is_question("Let's say traffic doubles overnight."))
+        self.assertTrue(audio_engine.is_question("Tell me about your experience with Kafka."))
+        self.assertTrue(audio_engine.is_question("I want you to talk me through the trade-offs."))
         self.assertFalse(audio_engine.is_question("Let us move on to the next topic."))
 
     def test_04b_audio_system_device_selection(self):
@@ -296,7 +302,7 @@ class TestApexPilotComplete(unittest.TestCase):
             audio_engine.simulate_speech_input(
                 "interviewer", "design a reliable event processing system"
             )
-            time.sleep(1.2)
+            time.sleep(2.8)
             self.assertEqual(
                 detected,
                 ["how would you design a reliable event processing system"],
@@ -324,6 +330,16 @@ class TestApexPilotComplete(unittest.TestCase):
             LocalLLMClient._choose_ollama_fallback(["llama3.2:3b", "qwen2.5:7b"]),
             "llama3.2:3b",
         )
+
+    def test_18b_local_default_model_is_low_latency(self):
+        """Uses a lightweight installed-friendly Ollama default."""
+        self.assertEqual(context_store.get_llm_config()["model"], "qwen2.5:3b")
+
+    def test_18c_accent_recognition_defaults(self):
+        """Keeps regional recognition and local Whisper fallback configured."""
+        preferences = context_store.config["preferences"]
+        self.assertIn("en-IN", preferences["speech_languages"])
+        self.assertEqual(preferences["whisper_model"], "small.en")
 
     def test_19_all_visible_modes_build_distinct_prompts(self):
         """Every mode button maps to a working prompt and offline response path."""

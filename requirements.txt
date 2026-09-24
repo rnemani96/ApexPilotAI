@@ -8,5 +8,7 @@ sounddevice>=0.4.6
 SoundCard>=0.4.4
 SpeechRecognition>=3.10.0
 pocketsphinx>=5.0.0
+# Optional accent-robust local ASR; downloads a Whisper model on first use.
+faster-whisper>=1.1.0
 pypdf>=4.0.0
 python-docx>=1.0.0

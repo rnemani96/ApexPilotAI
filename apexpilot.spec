@@ -23,6 +23,7 @@ hidden_imports = [
     'soundcard',
     'speech_recognition',
     'pocketsphinx',
+    'faster_whisper',
     '_cffi_backend'
 ]
 

@@ -176,6 +176,10 @@ ApexPilot uses speaker loopback first and Stereo Mix as a fallback. Candidate
 microphone speech is shown as a transcript, while interviewer/system speech is
 the only source that automatically starts an answer.
 
+For difficult accents or noisy meeting audio, ApexPilot tries multiple English
+regional recognizers and then local Whisper before the PocketSphinx fallback.
+The first Whisper transcription downloads the configured model.
+
 ### Option 2: Ultra-Fast Cloud LLMs (Sub-Second Response)
 1. In Settings -> **🌐 Online API Pool**, paste your API key for:
    * **Groq** (`gsk_...`): Generates solutions at **300+ tokens/second** on LPU hardware.

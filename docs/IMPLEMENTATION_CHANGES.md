@@ -50,7 +50,7 @@ The application now:
 
 The final repository audit verified compilation, the complete regression suite,
 audio-device selection, transcription dependency loading, UI behavior, and
-configuration parsing. The test suite completed with **21 passing tests**.
+configuration parsing. The test suite completed with **23 passing tests**.
 
 `config.json` was also sanitized during the audit. Any provider credentials
 must now be entered locally through the settings UI or an untracked
@@ -210,7 +210,7 @@ This preserves retry behavior when a provider becomes available later.
 
 ## `README.md`
 
-The verification section was corrected to the current suite count of 21 tests.
+The verification section was corrected to the current suite count of 23 tests.
 It now also lists:
 
 - Resume/JD document extraction and prompt personalization.
@@ -254,7 +254,7 @@ Result: passed.
 .\.venv\Scripts\python.exe test_stealth.py
 ```
 
-Result: all 21 tests passed.
+Result: all 23 tests passed.
 
 The suite covers:
 

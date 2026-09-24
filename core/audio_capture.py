@@ -16,21 +16,33 @@ import re
 import numpy as np
 import logging
 from typing import Callable, Optional
+from core.context_store import context_store
 
 logger = logging.getLogger("ApexPilot.Audio")
 
 # Question indicator regex triggers
 QUESTION_PATTERNS = [
     r"\b(how|what|why|where|when|who|which)\b.*\?",
-    r"^\s*(how|what|why|where|when|who|which)\b(?:\s+\w+){2,}",
+    r"\b(how|what|why|where|when|who|which)\b(?:\s+\w+){2,}",
     r"\bcan you (explain|tell|describe|walk|write|show|implement)\b",
     r"\bcould you (explain|tell|describe|walk|write|show|implement)\b",
     r"\b(can|could|would|will) you (explain|tell|describe|walk|write|show|implement|design|scale|handle|compare)\b",
+    r"\b(are|is|do|does|did|have|has|will|would|could|can)\s+you\b",
     r"\btell me about\b",
     r"\bwalk me through\b",
     r"\bwhat is your approach to\b",
     r"\bhow would you (design|optimize|solve|scale|handle|test)\b",
     r"\bwhat are the trade-offs\b",
+    # Conversational interview prompts often arrive without a question mark.
+    r"\b(i['’]?d like to hear|i want to hear|i['’]?m interested in hearing)\b",
+    r"\b(talk|tell|walk|take) me through\b",
+    r"\b(tell|describe|explain) (?:me )?(about|how|what)\b",
+    r"\b(can you speak to|could you speak to|speak to your experience)\b",
+    r"\b(your experience with|your approach to|your background in)\b",
+    r"\b(let['’]?s say|suppose|imagine|assume|consider)\b(?:\s+\w+){2,}",
+    r"\b(how did you|what did you|why did you|when did you)\b",
+    r"\b(what do you think|how do you see|how do you feel)\b",
+    r"\b(i['’]?d like you to|i want you to|please)\b",
 ]
 
 COMPILED_PATTERNS = [re.compile(p, re.IGNORECASE) for p in QUESTION_PATTERNS]
@@ -67,6 +79,8 @@ class AudioCaptureEngine:
         self._transcription_queue = queue.Queue()
         self._transcription_thread = None
         self._transcriber_warning_logged = False
+        self._whisper_model = None
+        self._whisper_model_name = None
         self._last_rms_log_at = {}
 
     def register_callbacks(self,
@@ -118,7 +132,7 @@ class AudioCaptureEngine:
             # Wait briefly for the remaining recognition segment. This avoids
             # answering a partial question while the interviewer is speaking.
             self._question_timer = threading.Timer(
-                1.0, self._emit_pending_question, args=(combined, normalized)
+                2.5, self._emit_pending_question, args=(combined, normalized)
             )
             self._question_timer.daemon = True
             self._question_timer.start()
@@ -212,7 +226,7 @@ class AudioCaptureEngine:
                             "System-audio capture device not available; "
                             "microphone capture remains active."
                         )
-                    else:
+                    elif system_stream is not None:
                         loopback_stream, device_name = system_stream
                         self._streams.append(loopback_stream)
                         logger.info("System-audio capture started from %s.", device_name)
@@ -428,7 +442,7 @@ class AudioCaptureEngine:
                 logger.info("No transcript returned for %s speech segment.", speaker)
 
     def _transcribe(self, audio_bytes: bytes) -> str:
-        """Use online recognition first, then a local PocketSphinx fallback."""
+        """Use regional online ASR, local Whisper, then PocketSphinx."""
         samples = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32)
         if samples.size == 0:
             return ""
@@ -451,15 +465,28 @@ class AudioCaptureEngine:
             recognizer = sr.Recognizer()
             normalized = self._normalize_pcm(audio_bytes)
             audio = sr.AudioData(normalized, self.sample_rate, 2)
-            try:
-                text = recognizer.recognize_google(audio, language="en-US").strip()
-                if text:
-                    return text
-            except (sr.UnknownValueError, sr.RequestError) as e:
-                logger.info(
-                    "Google recognition unavailable (%s); trying local recognition.",
-                    e.__class__.__name__,
-                )
+            languages = context_store.config.get("preferences", {}).get(
+                "speech_languages", ["en-US", "en-IN", "en-GB"]
+            )
+            if isinstance(languages, str):
+                languages = [languages]
+            google_failed = True
+            for language in languages:
+                try:
+                    text = recognizer.recognize_google(audio, language=language).strip()
+                    if self._is_credible_transcript(text):
+                        logger.info("Google recognition succeeded with locale %s.", language)
+                        return text
+                except (sr.UnknownValueError, sr.RequestError) as e:
+                    logger.info(
+                        "Google recognition unavailable for %s (%s).",
+                        language,
+                        e.__class__.__name__,
+                    )
+
+            whisper_text = self._transcribe_with_whisper(normalized)
+            if whisper_text:
+                return whisper_text
 
             try:
                 text = recognizer.recognize_sphinx(audio).strip()
@@ -473,6 +500,41 @@ class AudioCaptureEngine:
         except Exception as e:
             logger.warning("Speech transcription failed: %s", e)
             return ""
+
+    def _transcribe_with_whisper(self, audio_bytes: bytes) -> str:
+        """Use optional local Whisper ASR for accents and noisy meeting audio."""
+        try:
+            from faster_whisper import WhisperModel
+        except ImportError:
+            return ""
+
+        model_name = context_store.config.get("preferences", {}).get(
+            "whisper_model", "small.en"
+        )
+        try:
+            if self._whisper_model is None or self._whisper_model_name != model_name:
+                logger.info("Loading local Whisper model '%s'.", model_name)
+                self._whisper_model = WhisperModel(
+                    model_name,
+                    device="cpu",
+                    compute_type="int8",
+                )
+                self._whisper_model_name = model_name
+            audio = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+            segments, _ = self._whisper_model.transcribe(
+                audio,
+                language="en",
+                beam_size=5,
+                vad_filter=True,
+                condition_on_previous_text=False,
+            )
+            text = " ".join(segment.text.strip() for segment in segments).strip()
+            if self._is_credible_transcript(text):
+                logger.info("Local Whisper recognition returned usable text.")
+                return text
+        except Exception as exc:
+            logger.warning("Local Whisper recognition failed: %s", exc)
+        return ""
 
     @staticmethod
     def _normalize_pcm(audio_bytes: bytes) -> bytes:

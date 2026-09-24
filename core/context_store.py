@@ -21,7 +21,7 @@ DEFAULT_CONFIG = {
     "llm": {
         "provider": "ollama",  # 'ollama', 'llama_cpp', 'lm_studio', 'openai', 'grok', 'groq', 'claude', 'deepseek', 'gemini', 'mock'
         "base_url": "http://127.0.0.1:11434",
-        "model": "qwen2.5-coder:7b",
+        "model": "qwen2.5:3b",
         "temperature": 0.2,
         "max_tokens": 1500,
         "timeout_seconds": 15
@@ -78,7 +78,9 @@ DEFAULT_CONFIG = {
         "screen_share_shield": True,
         "click_through": False,
         "teleprompter_mode": False,
-        "system_audio_only": False
+        "system_audio_only": False,
+        "speech_languages": ["en-US", "en-IN", "en-GB"],
+        "whisper_model": "small.en"
     },
     "window_geometry": {
         "x": 200,

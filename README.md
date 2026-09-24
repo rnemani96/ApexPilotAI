@@ -101,6 +101,14 @@ At startup, verify the log contains both `Microphone capture started` and
 select the meeting playback device as the Windows default output and confirm
 the meeting application is actually playing audio through that device.
 
+### Accent and recognition fallback
+
+Recognition tries `en-US`, `en-IN`, and `en-GB` by default. If Google
+recognition cannot understand the accent or is unavailable, ApexPilot uses a
+local Whisper `small.en` model, then PocketSphinx as a final lightweight
+fallback. The first Whisper use downloads its model and may take longer; later
+segments stay local and do not require Google.
+
 ### Option B: llama.cpp / llama-server
 ```powershell
 llama-server.exe -m your_model.gguf --port 8080 -ngl 99
@@ -157,7 +165,7 @@ To verify all system subsystems, display affinity hooks, OCR engines, cache, PDF
 ```powershell
 .\.venv\Scripts\python.exe test_stealth.py
 ```
-The verification suite currently contains 21 tests covering:
+The verification suite currently contains 23 tests covering:
 - Win32 Stealth Layer (`WDA_EXCLUDEFROMCAPTURE`)
 - Real-time LLM Streaming Generator across 5 modes
 - Windows.Media.Ocr Native Text Recognition

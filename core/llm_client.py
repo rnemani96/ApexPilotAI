@@ -336,7 +336,14 @@ class LocalLLMClient:
                 "options": {"temperature": llm_cfg.get("temperature", 0.2), "num_predict": llm_cfg.get("max_tokens", 1500)},
                 "stream": True
             }
-            with client.stream("POST", f"{base_url}/api/chat", json=payload, timeout=35.0) as resp:
+            # Keep local generation responsive; fail over instead of blocking
+            # the teleprompter for a long model-load or stalled stream.
+            with client.stream(
+                "POST",
+                f"{base_url}/api/chat",
+                json=payload,
+                timeout=httpx.Timeout(20.0, connect=3.0, read=20.0, write=10.0, pool=3.0),
+            ) as resp:
                 if resp.status_code == 429:
                     raise RateLimitError("Ollama 429")
                 if resp.status_code == 404:

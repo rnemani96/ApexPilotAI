@@ -86,7 +86,8 @@ class TeleprompterBar(QWidget):
         self.expand_btn.clicked.connect(self.expand_requested.emit)
         layout.addWidget(self.expand_btn)
 
-        self.setFixedHeight(46)
+        self.setMinimumHeight(46)
+        self.setMaximumHeight(90)
         self.setMinimumWidth(650)
 
     def _position_under_webcam(self):
@@ -94,7 +95,7 @@ class TeleprompterBar(QWidget):
         screen = QApplication.primaryScreen().geometry()
         x = (screen.width() - 700) // 2
         y = 12  # 12px below top bezel
-        self.setGeometry(x, y, 700, 46)
+        self.setGeometry(x, y, 700, 58)
 
     def set_opacity(self, opacity: float):
         """Apply the shared HUD opacity to the teleprompter window."""
