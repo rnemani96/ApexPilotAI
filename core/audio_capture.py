@@ -13,6 +13,7 @@ import time
 import threading
 import queue
 import re
+import warnings
 import numpy as np
 import logging
 from typing import Callable, Optional
@@ -248,6 +249,7 @@ class AudioCaptureEngine:
         """Start speaker loopback capture when PortAudio exposes no loopback input."""
         try:
             import soundcard as sc
+            from soundcard.mediafoundation import SoundcardRuntimeWarning
         except ImportError:
             logger.info(
                 "Optional soundcard loopback backend is not installed; "
@@ -278,7 +280,11 @@ class AudioCaptureEngine:
                     blocksize=self.chunk_size,
                 ) as recorder:
                     while self.is_capturing and not self._loopback_stop.is_set():
-                        data = recorder.record(numframes=self.chunk_size)
+                        # Windows can report a recoverable WASAPI discontinuity
+                        # while still returning a valid audio block.
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", SoundcardRuntimeWarning)
+                            data = recorder.record(numframes=self.chunk_size)
                         self._audio_callback(
                             "interviewer",
                             data,
