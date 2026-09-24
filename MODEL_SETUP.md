@@ -5,6 +5,41 @@ ApexPilot AI, and how to verify that the local interview pipeline is working.
 The instructions target Windows PowerShell and the repository virtual
 environment at `D:\interAI\.venv`.
 
+## Sharing the Windows installer
+
+The installable Windows package is:
+
+```text
+D:\interAI\installer_dist\ApexPilotAI_Setup.exe
+```
+
+You can share this `.exe` with other users so they can install ApexPilot AI.
+The installer installs the packaged ApexPilot application and its bundled
+Python/runtime dependencies. It is intended for **64-bit Windows 10 and
+Windows 11**.
+
+### Installation steps for another user
+
+1. Copy `ApexPilotAI_Setup.exe` to the target Windows computer.
+2. Run the installer.
+3. Accept the default per-user installation location and complete setup.
+4. Launch **ApexPilot AI** from the Start Menu or the desktop shortcut.
+5. Follow the rest of this document to install Ollama and download the local
+   answer models.
+
+The installer does **not** contain the multi-gigabyte Ollama models. Ollama
+must be installed separately, and each user must download the models locally.
+The installer also does not guarantee that the Whisper checkpoint is already
+cached; the first local Whisper fallback can download `small.en` when needed.
+Share this `MODEL_SETUP.md` file together with the installer.
+
+### Windows SmartScreen
+
+The installer and executable may display a Windows SmartScreen warning because
+this private build is not digitally code-signed. If the file was obtained from
+the trusted project owner, select **More info** and then **Run anyway**. Do
+not bypass warnings for files from an unknown or untrusted source.
+
 ## 1. Recommended architecture
 
 ApexPilot uses separate models for separate jobs:
@@ -324,4 +359,3 @@ ollama rm qwen2.5-coder:7b
 Removing a model that appears in the fallback list is safe; ApexPilot skips
 missing models and uses the next installed model. Keep at least
 `qwen2.5:3b` installed for the documented default behavior.
-
